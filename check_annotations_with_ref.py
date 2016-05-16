@@ -1,3 +1,4 @@
+#!/usr/bin/python2
 __author__ = 'Kinggerm'
 
 
@@ -7,11 +8,6 @@ import math
 import os
 from optparse import OptionParser, OptionGroup
 
-
-# V2.1 take *.gb as input format rather than *.annotations.fasta
-# V3.2 fix bugs with reading illegal annotations
-# V3.3 fix minor bugs in find_string_difference
-# V3.4 fix minor bugs in find_string_difference
 
 stop_codons = {"TAA", "TAG", "TGA", 'taa', 'tag', 'tga'}
 initiation_codons = {"ATG", 'atg', "GTG", 'gtg', "ATT", 'att', "ATA", 'ata', "TTG", 'ttg', "ATC", 'atc', "CTG", 'ctg'}
