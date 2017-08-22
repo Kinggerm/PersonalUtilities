@@ -83,7 +83,7 @@ def read_fasta(fasta_file):
                 this_seq += this_line.strip()
                 this_line = fasta_handler.readline()
                 seq_line_count += 1
-            seqs.append(this_seq)
+            seqs.append(this_seq.replace(" ", ""))
         else:
             this_line = fasta_handler.readline()
     fasta_handler.close()
