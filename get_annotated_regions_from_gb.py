@@ -26,6 +26,8 @@ def get_options():
                       help="By default, combining exons.")
     parser.add_option("--ignore-format-error", dest="ignore_format_error", default=False, action="store_true",
                       help="Skip the Error: key \"gene\" not found in annotation. Not suggested.")
+    parser.add_options("--overwrite", dest="overwrite", default=False, action="store_true",
+                       help="Choose to overwrite previous result.")
     options, argv = parser.parse_args()
     if not options.out_put:
         parser.print_help()
@@ -193,15 +195,46 @@ def write_fasta(out_file, seq_dict):
             out_put_handler.write(">" + name + "\n" + seq_dict[name] + "\n\n")
 
 
+def write_statistics(out_file, base_name_list, gene_dict, intergene_dict):
+    gene_names = sorted(list(gene_dict))
+    str_gene_names = ["".join(n).replace(" ", "_") for n in gene_names]
+    inter_names = sorted(list(intergene_dict))
+    str_inter_names = ["--".join(["".join(x) for x in n[:2]]).replace(" ", "_") + n[2] for n in inter_names]
+    with open(out_file, "w") as out_put_handler:
+        out_put_handler.write("\t".join(["gb_name"] + str_gene_names + str_inter_names) + "\n")
+        for gb_name in base_name_list:
+            out_put_handler.write(gb_name)
+            for loci_name in gene_names:
+                if gb_name in gene_dict[loci_name]:
+                    out_put_handler.write("\t" + str(len(gene_dict[loci_name][gb_name])))
+                else:
+                    out_put_handler.write("\t-")
+            for loci_name in inter_names:
+                if gb_name in intergene_dict[loci_name]:
+                    out_put_handler.write("\t" + str(len(intergene_dict[loci_name][gb_name])))
+                else:
+                    out_put_handler.write("\t-")
+            out_put_handler.write("\n")
+
+
 def main():
     time0 = time.time()
 
     options, argv = get_options()
-    os.mkdir(options.out_put)
     gene_dir = os.path.join(options.out_put, "gene")
-    os.mkdir(gene_dir)
     intergenic_dir = os.path.join(options.out_put, "intergene")
-    os.mkdir(intergenic_dir)
+    if not os.path.exists(options.out_put):
+        os.mkdir(options.out_put)
+        os.mkdir(gene_dir)
+        os.mkdir(intergenic_dir)
+    else:
+        if options.overwrite:
+            if not os.path.exists(gene_dir):
+                os.mkdir(gene_dir)
+            if not os.path.exists(intergenic_dir):
+                os.mkdir(intergenic_dir)
+        else:
+            raise FileExistsError(options.out_put + " exists!")
 
     types = set()
     for this_t in options.gene_types.split(","):
@@ -212,9 +245,11 @@ def main():
 
     out_gene_dict = {}
     out_intergenic_dict = {}
+    base_name_list = []
     for this_gb in argv:
         if os.path.exists(this_gb):
             gb_base_name = os.path.basename(this_gb).replace(".gb", "").replace(".genbank", "")
+            base_name_list.append(gb_base_name)
             this_records = list(SeqIO.parse(this_gb, "genbank"))
             for seq_record in this_records:
                 gene_regions, intergenic_regions = get_seqs(seq_record, types, options.ignore_format_error)
@@ -329,11 +364,12 @@ def main():
                 del out_gene_dict[tuple(list(region_set_name) + ["__exon" + str(exon_num)])]
 
     for region_name in out_gene_dict:
-        write_fasta(os.path.join(gene_dir, "".join(region_name).replace(" ", "_"))+".fasta",
+        write_fasta(os.path.join(gene_dir, "".join(region_name).replace(" ", "_") + ".fasta"),
                     out_gene_dict[region_name])
     for region_name in out_intergenic_dict:
-        write_fasta(os.path.join(intergenic_dir, "--".join(["".join(x) for x in region_name[:2]]).replace(" ", "_"))
-                    + ".fasta", out_intergenic_dict[region_name])
+        write_fasta(os.path.join(intergenic_dir, "--".join(["".join(x) for x in region_name[:2]]).replace(" ", "_") +
+                                 region_name[2] + ".fasta"), out_intergenic_dict[region_name])
+    write_statistics(os.path.join(options.out_put, "statistics.txt"), base_name_list, out_gene_dict, out_intergenic_dict)
 
     sys.stdout.write("Time cost: "+str(time.time() - time0) + "\n")
 
