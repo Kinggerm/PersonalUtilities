@@ -20,12 +20,17 @@ def get_options():
                       help="Annotation type taken as gene. Default: CDS,tRNA,rRNA")
     parser.add_option("--separate-copy", dest="one_copy", default=True, action="store_false",
                       help="By default, only keep the first one if there are several regions with the same name.")
+    parser.add_option("--copy-mode", dest="copy_mode", default="longest",
+                      help="first or longest (default).")
     parser.add_option("--separate-exon", dest="combine_exon", default=True, action="store_false",
                       help="By default, combining exons.")
     parser.add_option("--ignore-format-error", dest="ignore_format_error", default=False, action="store_true",
                       help="Skip the Error: key \"gene\" not found in annotation. Not suggested.")
     options, argv = parser.parse_args()
     if not options.out_put:
+        parser.print_help()
+        sys.exit()
+    if options.copy_mode not in {"longest", "first"}:
         parser.print_help()
         sys.exit()
     return options, argv
@@ -63,7 +68,6 @@ def embed_in(candidate_small, candidate_large):
 
 def get_seqs(seq_record, accepted_types, ignore_format_error=False):
     original_seq = str(seq_record.seq)
-    seq_len = len(original_seq)
 
     def get_seq_with_gb_loc(in_location):
         in_start, in_end, in_strand = in_location
@@ -82,20 +86,20 @@ def get_seqs(seq_record, accepted_types, ignore_format_error=False):
         if feature.type in accepted_types:
             if "gene" in feature.qualifiers:
                 locations = parse_bio_gb_locations(feature.location)
-                this_name = feature.qualifiers["gene"][0]
-                if this_name not in name_counter:
-                    name_counter[this_name] = 1
+                this_name = [feature.qualifiers["gene"][0], "", ""]
+                if this_name[0] not in name_counter:
+                    name_counter[this_name[0]] = 1
                 else:
-                    name_counter[this_name] += 1
-                    this_name += "__copy" + str(name_counter[this_name])
+                    name_counter[this_name[0]] += 1
+                    this_name[1] = "__copy" + str(name_counter[this_name[0]])
                 if len(locations) > 1:
                     for i, loc in enumerate(locations):
-                        full_name = this_name + "__exon" + str(i + 1)
+                        this_name[2] = "__exon" + str(i + 1)
                         if loc not in taken_loc:
-                            gene_regions.append([full_name] + list(loc) + [get_seq_with_gb_loc(loc)])
+                            gene_regions.append([tuple(this_name)] + list(loc) + [get_seq_with_gb_loc(loc)])
                             taken_loc.add(loc)
                 else:
-                    gene_regions.append([this_name] + list(locations[0]) + [get_seq_with_gb_loc(locations[0])])
+                    gene_regions.append([tuple(this_name)] + list(locations[0]) + [get_seq_with_gb_loc(locations[0])])
             elif not ignore_format_error:
                 sys.stdout.write("Key \"gene\" not found in annotation:\n")
                 sys.stdout.write(str(feature))
@@ -108,10 +112,16 @@ def get_seqs(seq_record, accepted_types, ignore_format_error=False):
         if gene_regions[0][1] == gene_regions[0][2]:
             pass
         else:
-            anchor1 = gene_regions[0][0] + ("(-)" if gene_regions[0][3] == 1 else "(+)")
-            anchor2 = gene_regions[0][0] + ("(+)" if gene_regions[0][3] == 1 else "(-)")
-            this_loc = [gene_regions[0][2], gene_regions[0][1], 1]
-            intergenic_regions.append([anchor1 + "--" + anchor2]+this_loc+[get_seq_with_gb_loc(this_loc)])
+            anchor1 = [gene_regions[0][0][0], gene_regions[0][0][2], "(-)" if gene_regions[0][3] == 1 else "(+)"]
+            anchor2 = [gene_regions[0][0][0], gene_regions[0][0][2], "(+)" if gene_regions[0][3] == 1 else "(-)"]
+            this_name = sorted([tuple(anchor1), tuple(anchor2)]) + [""]
+            if tuple(this_name[:2]) not in name_counter:
+                name_counter[tuple(this_name[:2])] = 1
+            else:
+                name_counter[tuple(this_name[:2])] += 1
+                this_name[2] = "__copy" + str(name_counter[tuple(this_name[:2])])
+            this_loc = [gene_regions[0][2], gene_regions[0][1], 1*int(2*((anchor1 <= anchor2) - 0.5))]
+            intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc)])
     elif len(gene_regions) > 1:
         first_region = gene_regions[0]
         circular_regions = [in_region for in_region in gene_regions if in_region[1] >= in_region[2]]
@@ -130,15 +140,27 @@ def get_seqs(seq_record, accepted_types, ignore_format_error=False):
             if last_region[2] >= first_region[1]:
                 pass
             else:
-                anchor1 = last_region[0] + ("(-)" if last_region[3] == 1 else "(+)")
-                anchor2 = first_region[0] + ("(+)" if first_region[3] == 1 else "(-)")
-                this_loc = [last_region[2], first_region[1], 1]
-                intergenic_regions.append([anchor1 + "--" + anchor2] + this_loc + [get_seq_with_gb_loc(this_loc)])
+                anchor1 = [last_region[0][0], last_region[0][2], "(-)" if last_region[3] == 1 else "(+)"]
+                anchor2 = [first_region[0][0], first_region[0][2], "(+)" if first_region[3] == 1 else "(-)"]
+                this_name = sorted([tuple(anchor1), tuple(anchor2)]) + [""]
+                if tuple(this_name[:2]) not in name_counter:
+                    name_counter[tuple(this_name[:2])] = 1
+                else:
+                    name_counter[tuple(this_name[:2])] += 1
+                    this_name[2] = "__copy" + str(name_counter[tuple(this_name[:2])])
+                this_loc = [last_region[2], first_region[1], 1*int(2*((anchor1 <= anchor2) - 0.5))]
+                intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc)])
         else:
-            this_loc = [last_region[2], first_region[1], 1]
-            anchor1 = last_region[0] + ("(-)" if last_region[3] == 1 else "(+)")
-            anchor2 = first_region[0] + ("(+)" if first_region[3] == 1 else "(-)")
-            intergenic_regions.append([anchor1 + "--" + anchor2] + this_loc + [get_seq_with_gb_loc(this_loc)])
+            anchor1 = [last_region[0][0], last_region[0][2], "(-)" if last_region[3] == 1 else "(+)"]
+            anchor2 = [first_region[0][0], first_region[0][2], "(+)" if first_region[3] == 1 else "(-)"]
+            this_name = sorted([tuple(anchor1), tuple(anchor2)]) + [""]
+            if tuple(this_name[:2]) not in name_counter:
+                name_counter[tuple(this_name[:2])] = 1
+            else:
+                name_counter[tuple(this_name[:2])] += 1
+                this_name[2] = "__copy" + str(name_counter[tuple(this_name[:2])])
+            this_loc = [last_region[2], first_region[1], 1 * int(2 * ((anchor1 <= anchor2) - 0.5))]
+            intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc)])
     go2 = 0
     while go2 < len(gene_regions) - 1:
         go_add = 1
@@ -150,10 +172,16 @@ def get_seqs(seq_record, accepted_types, ignore_format_error=False):
         if this_region[1] >= this_region[2] and next_region[1] >= next_region[2]:
             pass
         elif this_region[2] < next_region[1] and end_of_last_region < next_region[1]:
-            anchor1 = this_region[0] + ("(-)" if this_region[3] == 1 else "(+)")
-            anchor2 = next_region[0] + ("(+)" if next_region[3] == 1 else "(-)")
-            this_loc = [this_region[2], next_region[1], 1]
-            intergenic_regions.append([anchor1 + "--" + anchor2] + this_loc + [get_seq_with_gb_loc(this_loc)])
+            anchor1 = [this_region[0][0], this_region[0][2], "(-)" if this_region[3] == 1 else "(+)"]
+            anchor2 = [next_region[0][0], next_region[0][2], "(+)" if next_region[3] == 1 else "(-)"]
+            this_loc = [this_region[2], next_region[1], 1 * int(2 * ((anchor1 <= anchor2) - 0.5))]
+            this_name = sorted([tuple(anchor1), tuple(anchor2)]) + [""]
+            if tuple(this_name[:2]) not in name_counter:
+                name_counter[tuple(this_name[:2])] = 1
+            else:
+                name_counter[tuple(this_name[:2])] += 1
+                this_name[2] = "__copy" + str(name_counter[tuple(this_name[:2])])
+            intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc)])
         go2 += go_add
     return gene_regions, intergenic_regions
 
@@ -198,53 +226,114 @@ def main():
                     if region_name not in out_intergenic_dict:
                         out_intergenic_dict[region_name] = {}
                     out_intergenic_dict[region_name][gb_base_name] = this_seq
+    #
     if options.one_copy:
-        for region_name in list(out_gene_dict):
-            if "__copy" in region_name:
-                # check identical
+        go_to = 0
+        sorted_region_names = sorted(list(out_gene_dict), key=lambda x: (x[0], x[2], x[1]))
+        while go_to < len(sorted_region_names):
+            region_name = sorted_region_names[go_to]
+            go_plus = 1
+            # if bool(sorted_region_names[go_to + go_plus][1]) == True, multiple copies exist.
+            while go_to + go_plus < len(sorted_region_names):
+                next_region_name = sorted_region_names[go_to + go_plus]
+                if (next_region_name[0], next_region_name[2]) != (region_name[0], region_name[2]):
+                    if sorted_region_names[go_to + go_plus][1]:
+                        sys.stdout.write("Warning: cannot find " + "".join([next_region_name[0], next_region_name[2]]) +
+                                         " while there's " + "".join(next_region_name) + "\n")
+                    break
+                else:
+                    go_plus += 1
+            if go_plus > 1:
                 for gb_name in out_gene_dict[region_name]:
-                    original_region_name = region_name.split("__")
-                    original_region_name = "__".join(original_region_name[:1] + original_region_name[2:])
-                    if original_region_name not in out_gene_dict:
-                        sys.stdout.write("Warning: distinct copies of "
-                                         + original_region_name + " in " + gb_name + "\n")
-                    elif out_gene_dict[region_name][gb_name] != out_gene_dict[original_region_name][gb_name]:
-                        sys.stdout.write("Warning: distinct copies of "
-                                         + original_region_name + " in " + gb_name + "\n")
-                del out_gene_dict[region_name]
-        for region_name in list(out_intergenic_dict):
-            if set(["__copy" in x for x in region_name.split("--")]) == {True}:
-                del out_intergenic_dict[region_name]
+                    this_seqs = []
+                    for go_candidate in range(go_to, go_to + go_plus):
+                        if gb_name in out_gene_dict[sorted_region_names[go_candidate]]:
+                            this_seqs.append(out_gene_dict[sorted_region_names[go_candidate]][gb_name])
+                    if len(set(this_seqs)) > 1:
+                        sys.stdout.write("Warning: distinct copies of " + "".join(region_name) + " in " + gb_name + "\n")
+                    if options.copy_mode == "longest":
+                        out_gene_dict[region_name][gb_name] = sorted(this_seqs, key=lambda x: -len(x))[0]
+                for go_del in range(go_to + 1, go_to + go_plus):
+                    del out_gene_dict[sorted_region_names[go_del]]
+            go_to += go_plus
+            # if "__copy" in region_name:
+            #     # check identical
+            #     for gb_name in out_gene_dict[region_name]:
+            #         original_region_name = region_name.split("__")
+            #         original_region_name = "__".join(original_region_name[:1] + original_region_name[2:])
+            #         if original_region_name not in out_gene_dict:
+            #             sys.stdout.write("Warning: distinct copies of "
+            #                              + original_region_name + " in " + gb_name + "\n")
+            #         elif out_gene_dict[region_name][gb_name] != out_gene_dict[original_region_name][gb_name]:
+            #             sys.stdout.write("Warning: distinct copies of "
+            #                              + original_region_name + " in " + gb_name + "\n")
+            #     del out_gene_dict[region_name]
+            # go_to += 1
+        go_to = 0
+        sorted_inter_names = sorted(list(out_intergenic_dict), key=lambda x: x[:2])
+        while go_to < len(sorted_inter_names):
+            inter_name = sorted_inter_names[go_to]
+            go_plus = 1
+            while go_to + go_plus < len(sorted_inter_names):
+                next_inter = sorted_inter_names[go_to + go_plus]
+                if inter_name[:2] != next_inter[:2]:
+                    if sorted_inter_names[go_to + go_plus][2]:
+                        sys.stdout.write("Warning: cannot find " + "".join(inter_name[0]) + "--" +
+                                         "".join(inter_name[1]) + " while there's " + "".join(next_inter[0]) +
+                                         "--" + "".join(next_inter[1]) + "\n")
+                    break
+                else:
+                    go_plus += 1
+            if go_plus > 1:
+                for gb_name in out_intergenic_dict[inter_name]:
+                    this_seqs = []
+                    for go_candidate in range(go_to, go_to + go_plus):
+                        if gb_name in out_intergenic_dict[sorted_inter_names[go_candidate]]:
+                            this_seqs.append(out_intergenic_dict[sorted_inter_names[go_candidate]][gb_name])
+                    if len(set(this_seqs)) > 1:
+                        sys.stdout.write("Warning: distinct copies of " + "".join(inter_name[0]) + "--" +
+                                         "".join(inter_name[1]) + " in " + gb_name + "\n")
+                    if options.copy_mode == "longest":
+                        out_intergenic_dict[inter_name][gb_name] = sorted(this_seqs, key=lambda x: -len(x))[0]
+                for go_del in range(go_to + 1, go_to + go_plus):
+                    del out_intergenic_dict[sorted_inter_names[go_del]]
+            go_to += go_plus
+
+        # for region_name in list(out_intergenic_dict):
+        #     if set(["__copy" in x for x in region_name.split("--")]) == {True}:
+        #         del out_intergenic_dict[region_name]
     if options.combine_exon:
-        regions_with_exon = [x for x in list(out_gene_dict) if "__exon" in x]
+        regions_with_exon = [x for x in list(out_gene_dict) if x[2]]
         region_dict = {}
         for region_name in regions_with_exon:
-            region_set_name, exon_num = region_name.split("__exon")
+            region_set_name = region_name[:2]
+            exon_num = int(region_name[2].replace("__exon", ""))
             if region_set_name not in region_dict:
                 region_dict[region_set_name] = []
-            region_dict[region_set_name].append(int(exon_num))
+            region_dict[region_set_name].append(exon_num)
         for region_set_name in region_dict:
             region_dict[region_set_name].sort()
             seq_names = set()
             for exon_num in region_dict[region_set_name]:
-                for gb_name in out_gene_dict[region_set_name + "__exon" + str(exon_num)]:
+                for gb_name in out_gene_dict[tuple(list(region_set_name) + ["__exon" + str(exon_num)])]:
                     seq_names.add(gb_name)
-            if region_set_name not in out_gene_dict:
-                out_gene_dict[region_set_name] = {}
+            new_name = tuple(list(region_set_name) + [""])
+            if new_name not in out_gene_dict:
+                out_gene_dict[new_name] = {}
             for gb_name in seq_names:
-                out_gene_dict[region_set_name][gb_name] = ""
+                out_gene_dict[new_name][gb_name] = ""
                 for exon_num in region_dict[region_set_name]:
-                    out_gene_dict[region_set_name][gb_name] += \
-                        out_gene_dict[region_set_name + "__exon" + str(exon_num)].get(gb_name, "")
+                    out_gene_dict[new_name][gb_name] += \
+                        out_gene_dict[tuple(list(region_set_name) + ["__exon" + str(exon_num)])].get(gb_name, "")
             for exon_num in region_dict[region_set_name]:
-                del out_gene_dict[region_set_name + "__exon" + str(exon_num)]
+                del out_gene_dict[tuple(list(region_set_name) + ["__exon" + str(exon_num)])]
 
     for region_name in out_gene_dict:
-        write_fasta(os.path.join(gene_dir, region_name.replace(" ", "_"))+".fasta",
+        write_fasta(os.path.join(gene_dir, "".join(region_name).replace(" ", "_"))+".fasta",
                     out_gene_dict[region_name])
     for region_name in out_intergenic_dict:
-        write_fasta(os.path.join(intergenic_dir, region_name.replace(" ", "_")) + ".fasta",
-                    out_intergenic_dict[region_name])
+        write_fasta(os.path.join(intergenic_dir, "--".join(["".join(x) for x in region_name[:2]]).replace(" ", "_"))
+                    + ".fasta", out_intergenic_dict[region_name])
 
     sys.stdout.write("Time cost: "+str(time.time() - time0) + "\n")
 
