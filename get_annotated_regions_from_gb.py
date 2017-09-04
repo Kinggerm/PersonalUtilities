@@ -20,29 +20,34 @@ def get_options():
                       help="Annotation type taken as gene. Default: CDS,tRNA,rRNA")
     parser.add_option("--separate-copy", dest="one_copy", default=True, action="store_false",
                       help="By default, only keep the first one if there are several regions with the same name.")
-    parser.add_option("--copy-mode", dest="copy_mode", default="longest",
-                      help="first or longest (default).")
+    parser.add_option("--copy-mode", dest="copy_mode", default="leastN_longest",
+                      help="first|longest|leastN|leastN_longest (default).")
     parser.add_option("--separate-exon", dest="combine_exon", default=True, action="store_false",
                       help="By default, combining exons.")
     parser.add_option("--ignore-format-error", dest="ignore_format_error", default=False, action="store_true",
                       help="Skip the Error: key \"gene\" not found in annotation. Not suggested.")
-    parser.add_options("--overwrite", dest="overwrite", default=False, action="store_true",
+    parser.add_option("--overwrite", dest="overwrite", default=False, action="store_true",
                        help="Choose to overwrite previous result.")
     options, argv = parser.parse_args()
     if not options.out_put:
         parser.print_help()
         sys.exit()
-    if options.copy_mode not in {"longest", "first"}:
+    if options.copy_mode not in {"longest", "first", "leastN", "leastN_longest"}:
         parser.print_help()
         sys.exit()
     return options, argv
 
 
 translator = str.maketrans("ATGCRMYKHBDVatgcrmykhbdv", "TACGYKRMDVHBtacgykrmdvhb")
+missing_base = {"N", "?", "n"}
 
 
 def complementary_seq(input_seq):
     return str.translate(input_seq, translator)[::-1]
+
+
+def count_n(seq):
+    return len([base for base in seq if base in missing_base])
 
 
 def parse_bio_gb_locations(location_feature):
@@ -288,6 +293,10 @@ def main():
                         sys.stdout.write("Warning: distinct copies of " + "".join(region_name) + " in " + gb_name + "\n")
                     if options.copy_mode == "longest":
                         out_gene_dict[region_name][gb_name] = sorted(this_seqs, key=lambda x: -len(x))[0]
+                    elif options.copy_mode == "leastN":
+                        out_gene_dict[region_name][gb_name] = sorted(this_seqs, key=lambda x: count_n(x))[0]
+                    elif options.copy_mode == "leastN_longest":
+                        out_gene_dict[region_name][gb_name] = sorted(this_seqs, key=lambda x: (count_n(x), -len(x)))[0]
                 for go_del in range(go_to + 1, go_to + go_plus):
                     del out_gene_dict[sorted_region_names[go_del]]
             go_to += go_plus
@@ -330,6 +339,10 @@ def main():
                                          "".join(inter_name[1]) + " in " + gb_name + "\n")
                     if options.copy_mode == "longest":
                         out_intergenic_dict[inter_name][gb_name] = sorted(this_seqs, key=lambda x: -len(x))[0]
+                    elif options.copy_mode == "leastN":
+                        out_intergenic_dict[inter_name][gb_name] = sorted(this_seqs, key=lambda x: count_n(x))[0]
+                    elif options.copy_mode == "leastN_longest":
+                        out_intergenic_dict[inter_name][gb_name] = sorted(this_seqs, key=lambda x: (count_n(x), -len(x)))[0]
                 for go_del in range(go_to + 1, go_to + go_plus):
                     del out_intergenic_dict[sorted_inter_names[go_del]]
             go_to += go_plus
