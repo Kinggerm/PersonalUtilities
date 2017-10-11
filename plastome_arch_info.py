@@ -7,6 +7,8 @@ import time
 
 def get_options():
     parser = OptionParser(usage="plastome_arch_info.py fasta_format_sequence_file(s)")
+    parser.add_option("-o", dest="output",
+                      help="output file.")
     parser.add_option("-r", dest="min_ir_length", default=10000, type=int,
                       help="The minimum repeat length treated as the IR region of plastome. Default: 10000")
     parser.add_option("-v", dest="valid_bases", default="ATGCRMYKHBDVatgcrmykhbdv",
@@ -392,13 +394,19 @@ def main():
                      "## by jinjianjun@mail.kib.ac.cn\n\n")
     options, argv = get_options()
     sys.stdout.write("file\tsequence_name\ttotal\tLSC\tSSC\tIR\tNotes\n")
+    if options.output:
+        out_handler = open(options.output, "w")
+        out_handler.close()
     for this_f in argv:
         this_matrix = read_fasta(this_f)
         for i in range(len(this_matrix[0])):
             arch = detect_architecture(this_matrix[1][i], options.min_ir_length, options.valid_bases)
-            sys.stdout.write("\t".join([this_f, this_matrix[0][i], str(len(this_matrix[1][i]))] +
-                                       [str(x) for x in arch]) + "\n")
-    sys.stdout.write("\nCost: " + str(round(time.time() - time0, 2)) + "s\n\n")
+            out_line = "\t".join([this_f, this_matrix[0][i], str(len(this_matrix[1][i]))] +
+                                 [str(x) for x in arch]) + "\n"
+            sys.stdout.write(out_line)
+            if options.output:
+                open(options.output, "a").write(out_line)
+    sys.stdout.write("\n## Cost: " + str(round(time.time() - time0, 2)) + "s\n\n")
 
 if __name__ == '__main__':
     main()
