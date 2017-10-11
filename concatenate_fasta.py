@@ -19,6 +19,8 @@ def require_options(print_title):
                            'concatenate order by file names.')
     parser.add_option('--config', dest='configuration_file',
                       help='If chosen and the input are aligned, output a configuration file recording the locations.')
+    parser.add_option('--prefix', dest="configure_prefix", default="DNA, ",
+                      help="For typical RAxML partition format, it needs assignment for model. (Default: DNA, )")
     options, args = parser.parse_args()
     if not (options.output and args):
         parser.print_help()
@@ -117,22 +119,34 @@ def main():
     fasta_matrices = []
     seq_names_list = []
     seq_names_set = set()
+    matrix_names = []
     if options.aligned:
-        lengths = []
+        matrix_lengths = []
+
     for fasta_file in args:
         this_matrix = read_fasta(fasta_file)
-        fasta_matrices.append(this_matrix)
-        for seq_name in this_matrix[0]:
-            if seq_name not in seq_names_set:
-                seq_names_list.append(seq_name)
-                seq_names_set.add(seq_name)
-        if options.aligned and this_matrix[1]:
-            lengths.append(len(this_matrix[1][0]))
-            for i in range(1, len(this_matrix[1])):
-                if len(this_matrix[1][i]) != lengths[-1]:
-                    print("Error: Unequal length between "+this_matrix[0][0]+" and "+this_matrix[0][i] +
-                          " in "+fasta_file+"!")
-                    exit()
+
+        here_lengths = [len(here_seq) for here_seq in this_matrix[1]]
+        lengths_set = set(here_lengths)
+        if this_matrix[1] and lengths_set != {0}:
+            if options.aligned:
+                matrix_lengths.append(here_lengths[0])
+                if len(lengths_set) != 1:
+                    for i in range(1, len(here_lengths)):
+                        if here_lengths[i] != matrix_lengths[-1]:
+                            print("Error: Unequal length between "+this_matrix[0][0]+" and "+this_matrix[0][i] +
+                                  " in "+fasta_file+"!")
+                            exit()
+
+            fasta_matrices.append(this_matrix)
+            matrix_names.append(re.sub(".fasta$", '', os.path.basename(fasta_file)))
+            for seq_name in this_matrix[0]:
+                if seq_name not in seq_names_set:
+                    seq_names_list.append(seq_name)
+                    seq_names_set.add(seq_name)
+        else:
+            sys.stdout.write("Warning: no bases found in " + fasta_file + ", skipping this file!")
+
     out_dict = {in_seq_name: '' for in_seq_name in seq_names_list}
     if options.aligned:
         if options.configuration_file:
@@ -144,11 +158,11 @@ def main():
                 out_dict[this_seq_name] += fasta_matrices[i][1][j]
                 seq_names_set.remove(this_seq_name)
             for add_seq_name in seq_names_set:
-                out_dict[add_seq_name] += "-"*lengths[i]
+                out_dict[add_seq_name] += "-"*matrix_lengths[i]
             if options.configuration_file:
-                config_file.write(re.sub(".fasta$", '', args[i]) +
-                                  '\t' + str(go_base + 1) + '-' + str(go_base + lengths[i]) + '\n')
-                go_base += lengths[i]
+                config_file.write(options.configure_prefix + matrix_names[i]+
+                                  ' = ' + str(go_base + 1) + '-' + str(go_base + matrix_lengths[i]) + '\n')
+                go_base += matrix_lengths[i]
             seq_names_set = set(seq_names_list)
     else:
         for this_matrix in fasta_matrices:
