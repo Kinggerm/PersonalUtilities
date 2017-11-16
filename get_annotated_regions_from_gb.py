@@ -26,6 +26,8 @@ def get_options():
                       help="By default, combining exons.")
     parser.add_option("--ignore-format-error", dest="ignore_format_error", default=False, action="store_true",
                       help="Skip the Error: key \"gene\" not found in annotation. Not suggested.")
+    parser.add_option("--translate-to-product", dest="product_to_gene", default=True, action="store_false",
+                      help="Default: False")
     parser.add_option("--overwrite", dest="overwrite", default=False, action="store_true",
                        help="Choose to overwrite previous result.")
     options, argv = parser.parse_args()
@@ -73,7 +75,48 @@ def embed_in(candidate_small, candidate_large):
         return small_end <= large_end
 
 
-def get_seqs(seq_record, accepted_types, ignore_format_error=False):
+trna_translate_table = {"Ala": "A",
+                        "Arg": "R",
+                        "Asn": "N",
+                        "Asp": "D",
+                        "Cys": "C",
+                        "Gln": "Q",
+                        "Glu": "E",
+                        "Gly": "G",
+                        "His": "H",
+                        "Ile": "I",
+                        "Leu": "L",
+                        "Lys": "K",
+                        "Met": "M",
+                        "fMet": "M",
+                        "Phe": "F",
+                        "Pro": "P",
+                        "Ser": "S",
+                        "Thr": "T",
+                        "Trp": "W",
+                        "Tyr": "Y",
+                        "Val": "V"}
+
+
+def translate_product_to_gene(product_name, do_it):
+    if do_it:
+        if product_name.startswith("tRNA-") or product_name.startswith("trna-"):
+            short_name = product_name.replace("tRNA-", "").replace("trna-", "")
+            if short_name[:3] in trna_translate_table:
+                return "trn" + trna_translate_table[short_name[:3]] + "-" + short_name[3:]
+            elif short_name[:4] in trna_translate_table:
+                return "trn" + trna_translate_table[short_name[:4]] + "-" + short_name[4:]
+            else:
+                return product_name
+        elif "rrna" in product_name or "rRNA" in product_name:
+            return "rrn" + product_name.replace("rrna", "").replace("rRNA", "").replace(" ", "").replace("_", "")
+        else:
+            return product_name
+    else:
+        return product_name
+
+
+def get_seqs(seq_record, accepted_types, ignore_format_error=False, translate_product=True):
     original_seq = str(seq_record.seq)
 
     def get_seq_with_gb_loc(in_location):
@@ -93,7 +136,7 @@ def get_seqs(seq_record, accepted_types, ignore_format_error=False):
         if feature.type in accepted_types:
             if "gene" in feature.qualifiers:
                 locations = parse_bio_gb_locations(feature.location)
-                this_name = [feature.qualifiers["gene"][0], "", ""]
+                this_name = [translate_product_to_gene(feature.qualifiers["gene"][0], translate_product), "", ""]
                 if this_name[0] not in name_counter:
                     name_counter[this_name[0]] = 1
                 else:
@@ -257,7 +300,8 @@ def main():
             base_name_list.append(gb_base_name)
             this_records = list(SeqIO.parse(this_gb, "genbank"))
             for seq_record in this_records:
-                gene_regions, intergenic_regions = get_seqs(seq_record, types, options.ignore_format_error)
+                gene_regions, intergenic_regions = get_seqs(seq_record, types,
+                                                            options.ignore_format_error, options.product_to_gene)
                 for region_name, start, end, strand, this_seq in gene_regions:
                     if region_name not in out_gene_dict:
                         out_gene_dict[region_name] = {}
