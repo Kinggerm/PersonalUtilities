@@ -4,8 +4,9 @@ import os
 import time
 import sys
 from Bio import SeqIO, SeqFeature
-import os
 from optparse import OptionParser
+from platform import system
+from glob import glob
 
 
 # Copyright(C) 2017 Jianjun Jin
@@ -31,9 +32,14 @@ def get_options():
     parser.add_option("--overwrite", dest="overwrite", default=False, action="store_true",
                        help="Choose to overwrite previous result.")
     options, argv = parser.parse_args()
-    if not options.out_put:
+    if not (options.out_put and bool(len(argv))):
         parser.print_help()
         sys.exit()
+    if system() == "Windows":
+        new_argv = []
+        for input_fn_pattern in argv:
+            new_argv.extend(glob(input_fn_pattern))
+        argv = new_argv
     if options.copy_mode not in {"longest", "first", "leastN", "leastN_longest"}:
         parser.print_help()
         sys.exit()
