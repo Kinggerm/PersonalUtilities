@@ -94,7 +94,7 @@ trna_translate_table = {"Ala": "A",
                         "Leu": "L",
                         "Lys": "K",
                         "Met": "M",
-                        "fMet": "M",
+                        "fMet": "fM",
                         "Phe": "F",
                         "Pro": "P",
                         "Ser": "S",
@@ -109,13 +109,13 @@ def translate_product_to_gene(product_name, do_it):
         if product_name.startswith("tRNA-") or product_name.startswith("trna-"):
             short_name = product_name.replace("tRNA-", "").replace("trna-", "")
             if short_name[:3] in trna_translate_table:
-                return "trn" + trna_translate_table[short_name[:3]] + "-" + short_name[3:]
+                return "trn" + trna_translate_table[short_name[:3]] + "-" + short_name[3:].replace("(", "").replace(")", "")
             elif short_name[:4] in trna_translate_table:
-                return "trn" + trna_translate_table[short_name[:4]] + "-" + short_name[4:]
+                return "trn" + trna_translate_table[short_name[:4]] + "-" + short_name[4:].replace("(", "").replace(")", "")
             else:
                 return product_name
         elif "rrna" in product_name or "rRNA" in product_name:
-            return "rrn" + product_name.replace("rrna", "").replace("rRNA", "").replace(" ", "").replace("_", "")
+            return "rrn" + product_name.replace("rrna", "").replace("rRNA", "").replace(" ", "").replace("_", "").replace("S", "")
         else:
             return product_name
     else:
