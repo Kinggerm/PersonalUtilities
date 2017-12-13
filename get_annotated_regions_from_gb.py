@@ -48,6 +48,8 @@ def get_options():
 
 translator = str.maketrans("ATGCRMYKHBDVatgcrmykhbdv", "TACGYKRMDVHBtacgykrmdvhb")
 missing_base = {"N", "?", "n"}
+head_ = "_+_"
+tail_ = "_-_"
 
 
 def complementary_seq(input_seq):
@@ -168,8 +170,8 @@ def get_seqs(seq_record, accepted_types, ignore_format_error=False, translate_pr
         if gene_regions[0][1] == gene_regions[0][2]:
             pass
         else:
-            anchor1 = [gene_regions[0][0][0], gene_regions[0][0][2], "(-)" if gene_regions[0][3] == 1 else "(+)"]
-            anchor2 = [gene_regions[0][0][0], gene_regions[0][0][2], "(+)" if gene_regions[0][3] == 1 else "(-)"]
+            anchor1 = [gene_regions[0][0][0], gene_regions[0][0][2], tail_ if gene_regions[0][3] == 1 else head_]
+            anchor2 = [gene_regions[0][0][0], gene_regions[0][0][2], head_ if gene_regions[0][3] == 1 else tail_]
             this_name = sorted([tuple(anchor1), tuple(anchor2)]) + [""]
             if tuple(this_name[:2]) not in name_counter:
                 name_counter[tuple(this_name[:2])] = 1
@@ -196,8 +198,8 @@ def get_seqs(seq_record, accepted_types, ignore_format_error=False, translate_pr
             if last_region[2] >= first_region[1]:
                 pass
             else:
-                anchor1 = [last_region[0][0], last_region[0][2], "(-)" if last_region[3] == 1 else "(+)"]
-                anchor2 = [first_region[0][0], first_region[0][2], "(+)" if first_region[3] == 1 else "(-)"]
+                anchor1 = [last_region[0][0], last_region[0][2], tail_ if last_region[3] == 1 else head_]
+                anchor2 = [first_region[0][0], first_region[0][2], head_ if first_region[3] == 1 else tail_]
                 this_name = sorted([tuple(anchor1), tuple(anchor2)]) + [""]
                 if tuple(this_name[:2]) not in name_counter:
                     name_counter[tuple(this_name[:2])] = 1
@@ -207,8 +209,8 @@ def get_seqs(seq_record, accepted_types, ignore_format_error=False, translate_pr
                 this_loc = [last_region[2], first_region[1], 1*int(2*((anchor1 <= anchor2) - 0.5))]
                 intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc)])
         else:
-            anchor1 = [last_region[0][0], last_region[0][2], "(-)" if last_region[3] == 1 else "(+)"]
-            anchor2 = [first_region[0][0], first_region[0][2], "(+)" if first_region[3] == 1 else "(-)"]
+            anchor1 = [last_region[0][0], last_region[0][2], tail_ if last_region[3] == 1 else head_]
+            anchor2 = [first_region[0][0], first_region[0][2], head_ if first_region[3] == 1 else tail_]
             this_name = sorted([tuple(anchor1), tuple(anchor2)]) + [""]
             if tuple(this_name[:2]) not in name_counter:
                 name_counter[tuple(this_name[:2])] = 1
@@ -228,8 +230,8 @@ def get_seqs(seq_record, accepted_types, ignore_format_error=False, translate_pr
         if this_region[1] >= this_region[2] and next_region[1] >= next_region[2]:
             pass
         elif this_region[2] < next_region[1] and end_of_last_region < next_region[1]:
-            anchor1 = [this_region[0][0], this_region[0][2], "(-)" if this_region[3] == 1 else "(+)"]
-            anchor2 = [next_region[0][0], next_region[0][2], "(+)" if next_region[3] == 1 else "(-)"]
+            anchor1 = [this_region[0][0], this_region[0][2], tail_ if this_region[3] == 1 else head_]
+            anchor2 = [next_region[0][0], next_region[0][2], head_ if next_region[3] == 1 else tail_]
             this_loc = [this_region[2], next_region[1], 1 * int(2 * ((anchor1 <= anchor2) - 0.5))]
             this_name = sorted([tuple(anchor1), tuple(anchor2)]) + [""]
             if tuple(this_name[:2]) not in name_counter:
