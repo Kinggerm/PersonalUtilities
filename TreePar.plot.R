@@ -64,9 +64,9 @@ results = bd.shifts.optim(sort(getx(con_tre), decreasing=TRUE), c(0.044, 1, 1, 1
 results_aic <- sapply(results, function(pars) 2*(length(pars) - 1)+2*pars[1])
 pchisq(2*(results[[1]][1]-results[[2]][1]), 3)
 
-results <- bd.shifts.optim(sort(getx(con_tre), decreasing=TRUE), c(0.044, 1), 1, 5, 80)[[3]]
+results <- bd.shifts.optim(sort(getx(con_tre), decreasing=TRUE), c(0.044, 1), 1, 5, 80)[[2]]
 rep_res <- list()
 rep_res[[1]] <- results
-for (i in 1:1000) {x <- sort(getx(mul_tre[[i]]), decreasing=TRUE); rep_res[[i+1]] <- bd.shifts.optim(x, c(0.044, 1), 1, 0, 90)[[3]]; print("===================="); print(i); print("====================")}
+for (i in 1:1000) {x <- sort(getx(mul_tre[[i]]), decreasing=TRUE); rep_res[[i+1]] <- bd.shifts.optim(x, c(0.044, 1), 1, 0, 90)[[2]]; print("===================="); print(i); print("====================")}
 
 bd.shifts.plot(rep_res, 2, "~/Documents/20160930-Rosaceae-diversification/Rosaceae.diversification.pdf", ratemin=0, ratemax=0.5, timemax=90)  # plot of 1 shifts
