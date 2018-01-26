@@ -64,8 +64,12 @@ except AttributeError:
         return str.translate(input_seq, translator)[::-1]
 
 
-def detect_repeats(sequence_string, min_repeat_length, circular, accepted_char=set(list("ATGCRMYKHBDVatgcrmykhbdv"))):
-    word_size = min(50, min_repeat_length)
+# Hashing methods.
+# I naively wrote this function by myself and latter found the name and description of this algorithm
+# in Kurtz et al. 2001. REPuter: the manifold applications of repeat analysis on a genomic scale.
+def find_exact_repeats(sequence_string, min_repeat_length, circular,
+                       accepted_char=set(list("ATGCRMYKHBDVatgcrmykhbdv"))):
+    word_size = min(13, min_repeat_length)
     if len(sequence_string) < min_repeat_length:
         return [None, None]
     if circular:
@@ -357,7 +361,7 @@ def detect_repeats(sequence_string, min_repeat_length, circular, accepted_char=s
 
 def detect_architecture(sequence, min_repeat_length, accepted_char):
     # assume the longest is ir
-    all_repeats = detect_repeats(sequence, min_repeat_length, True, accepted_char)
+    all_repeats = find_exact_repeats(sequence, min_repeat_length, True, accepted_char)
     if all_repeats:
         ir_locations = sorted(all_repeats[0], key=lambda x: -x["direction"])
         if len(ir_locations) != 2 or ir_locations[0]["direction"] == ir_locations[1]["direction"]:
