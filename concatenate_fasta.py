@@ -21,12 +21,14 @@ def require_options(print_title):
                       help='If chosen and the input are aligned, output a configuration file recording the locations.')
     parser.add_option('--prefix', dest="configure_prefix", default="DNA, ",
                       help="For typical RAxML partition format, it needs assignment for model. (Default: DNA, )")
+    parser.add_option("--quiet", dest="quiet", default=False, action="store_true")
     options, args = parser.parse_args()
     if not (options.output and args):
         parser.print_help()
-        sys.stdout.write('\n######################################\nERROR: Insufficient REQUIRED arguments!\n\n')
+        sys.stderr.write('\n######################################\nERROR: Insufficient REQUIRED arguments!\n\n')
         exit()
-    print(print_title)
+    if not options.quiet:
+        sys.stdout.write(print_title + "\n")
     if options.sort_file_name:
         min_len = min([len(file_name) for file_name in args])
         go_to = 0
@@ -61,9 +63,11 @@ def require_options(print_title):
                 del sys_args[count_argv]
             else:
                 count_argv += 1
-        print(' '.join(sys_args)+' '+' '.join(args) + '\n')
+        if not options.quiet:
+            sys.stdout.write(' '.join(sys_args)+' '+' '.join(args) + '\n\n')
     else:
-        print(' '.join(sys.argv) + '\n')
+        if not options.quiet:
+            sys.stdout.write(' '.join(sys.argv) + '\n\n')
     return options, args
 
 
@@ -134,8 +138,8 @@ def main():
                 if len(lengths_set) != 1:
                     for i in range(1, len(here_lengths)):
                         if here_lengths[i] != matrix_lengths[-1]:
-                            print("Error: Unequal length between "+this_matrix[0][0]+" and "+this_matrix[0][i] +
-                                  " in "+fasta_file+"!")
+                            sys.stderr.write("Error: Unequal length between " + this_matrix[0][0] + " and "
+                                             + this_matrix[0][i] + " in "+fasta_file+"!\n")
                             exit()
 
             fasta_matrices.append(this_matrix)
@@ -145,7 +149,7 @@ def main():
                     seq_names_list.append(seq_name)
                     seq_names_set.add(seq_name)
         else:
-            sys.stdout.write("Warning: no bases found in " + fasta_file + ", skipping this file!")
+            sys.stdout.write("Warning: no bases found in " + fasta_file + ", skipping this file!\n")
 
     out_dict = {in_seq_name: '' for in_seq_name in seq_names_list}
     if options.aligned:
@@ -170,7 +174,8 @@ def main():
                 out_dict[this_matrix[0][i]] += this_matrix[1][i]
     out_matrix = [seq_names_list, [out_dict[this_name] for this_name in seq_names_list], fasta_matrices[0][2]]
     write_fasta(options.output, out_matrix, False)
-    print("Cost: "+str(time.time()-time0))
+    if not options.quiet:
+        sys.stdout.write("Cost: " + str(time.time()-time0) + "\n")
 
 
 if __name__ == '__main__':
