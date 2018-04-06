@@ -71,7 +71,7 @@ def find_exact_repeats(sequence_string, min_repeat_length, circular,
                        accepted_char=set(list("ATGCRMYKHBDVatgcrmykhbdv"))):
     word_size = min(13, min_repeat_length)
     if len(sequence_string) < min_repeat_length:
-        return [None, None]
+        return []
     if circular:
         long_sequence = sequence_string + sequence_string[:word_size - 1]
         here_seq = long_sequence
