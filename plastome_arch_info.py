@@ -9,8 +9,8 @@ def get_options():
     parser = OptionParser(usage="plastome_arch_info.py fasta_format_sequence_file(s)")
     parser.add_option("-o", dest="output",
                       help="output file.")
-    parser.add_option("-r", dest="min_ir_length", default=10000, type=int,
-                      help="The minimum repeat length treated as the IR region of plastome. Default: 10000")
+    parser.add_option("-r", dest="min_ir_length", default=5000, type=int,
+                      help="The minimum repeat length treated as the IR region of plastome. Default: [%default]")
     parser.add_option("-v", dest="valid_bases", default="ATGCRMYKHBDVatgcrmykhbdv",
                       help="Valid bases. Default: ATGCRMYKHBDVatgcrmykhbdv")
     options, argv = parser.parse_args()
@@ -359,18 +359,32 @@ def find_exact_repeats(sequence_string, min_repeat_length, circular,
     return final_repeat
 
 
+def reverse_repeats_info(repeats):
+    new_repeats = []
+    for rep in repeats:
+        new_repeats.append({"start": rep["end"], "end": rep["start"],
+                            "direction": -rep["direction"], "length": rep["length"]})
+    return new_repeats
+
+
 def detect_architecture(sequence, min_repeat_length, accepted_char):
     # assume the longest is ir
     all_repeats = find_exact_repeats(sequence, min_repeat_length, True, accepted_char)
     if all_repeats:
-        ir_locations = sorted(all_repeats[0], key=lambda x: -x["direction"])
+        # Sorting makes:
+        # direct1==1 and direct2==-1
+        # start1 be the smallest forward start
+        ir_locations_1 = sorted(all_repeats[0], key=lambda x: -x["direction"])
+        ir_locations_2 = sorted(reverse_repeats_info(ir_locations_1), key=lambda x: -x["direction"])
+        ir_locations = sorted([ir_locations_1, ir_locations_2], key=lambda x: x[0]["start"])[0]
         if len(ir_locations) != 2 or ir_locations[0]["direction"] == ir_locations[1]["direction"]:
             return "-", "-", "-", "no IR found"
         else:
-            # as sorted, direct1==1 and direct2==-1
             start1, end1, direct1 = ir_locations[0]["start"], ir_locations[0]["end"], ir_locations[0]["direction"]
             start2, end2, direct2 = ir_locations[1]["start"], ir_locations[1]["end"], ir_locations[1]["direction"]
+            # cross the end, meaning site:seq_len in (IR1)
             if end1 < start1:
+                # seq_len >= start2 >= start1
                 if start2 >= start1:
                     return 0, 0, ir_locations[0]["length"], "IR overlaps"
                 else:
