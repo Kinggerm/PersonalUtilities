@@ -1559,7 +1559,7 @@ def fill_gaps_with_query_seq(h_site_dicts, total_len, in_h_gap_end, in_h_gap_sta
             else:
                 h_site_dicts[site_to_add] = {add_seq_name: '-'}
         middle = in_h_gap_start + (in_h_gap_end - in_h_gap_start) // 2
-        middle_gap = (middle, middle + 1)
+        middle_gap = (middle, middle % total_len + 1)
         # if hit is continuous, but there are extra bases to be add according to the query
         if h_site_dicts[middle_gap] and list(h_site_dicts[middle_gap][0].keys()).pop() == name_hit_and_back:
             # if there are extra bases of name2 that are not deleted
