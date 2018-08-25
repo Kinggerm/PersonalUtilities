@@ -1056,6 +1056,8 @@ def detect_continuity(this_name, previous_name_id, next_name_id, this_name_clust
         if go_to_h_for_prev in hit_site_dicts:
             detected_prev_names = set([strip_new(pre_name)
                                        for pre_name in hit_site_dicts[go_to_h_for_prev]])
+        else:
+            detected_prev_names = set()
         for extra_name in extra_prev_name:
             detected_prev_names.add(strip_new(extra_name))
         if supposed_prev_name not in detected_prev_names:
@@ -1073,6 +1075,8 @@ def detect_continuity(this_name, previous_name_id, next_name_id, this_name_clust
         if go_to_h_for_next in hit_site_dicts:
             detected_next_names = set([strip_new(nex_name)
                                        for nex_name in hit_site_dicts[go_to_h_for_next]])
+        else:
+            detected_next_names = set()
         for extra_name in extra_next_name:
             detected_next_names.add(strip_new(extra_name))
         if supposed_next_name not in detected_next_names:
