@@ -159,9 +159,9 @@ def get_seqs(seq_record, accepted_types, ignore_format_error=False, translate_pr
                 else:
                     gene_regions.append([tuple(this_name)] + list(locations[0]) + [get_seq_with_gb_loc(locations[0])])
             elif not ignore_format_error:
+                sys.stdout.write("\nError: ")
                 sys.stdout.write("Key \"gene\" not found in annotation:\n")
                 sys.stdout.write(str(feature))
-                sys.stdout.write("\nUse \"--ignore-format-error\" to ignore this error. Not suggested.\n")
                 raise NotImplementedError
     gene_regions.sort(key=lambda x: (x[1], -x[2], x[0]))
     intergenic_regions = []
@@ -307,17 +307,23 @@ def main():
             gb_base_name = os.path.basename(this_gb).replace(".gb", "").replace(".genbank", "")
             base_name_list.append(gb_base_name)
             this_records = list(SeqIO.parse(this_gb, "genbank"))
-            for seq_record in this_records:
-                gene_regions, intergenic_regions = get_seqs(seq_record, types,
-                                                            options.ignore_format_error, options.product_to_gene)
-                for region_name, start, end, strand, this_seq in gene_regions:
-                    if region_name not in out_gene_dict:
-                        out_gene_dict[region_name] = {}
-                    out_gene_dict[region_name][gb_base_name] = this_seq
-                for region_name, start, end, strand, this_seq in intergenic_regions:
-                    if region_name not in out_intergenic_dict:
-                        out_intergenic_dict[region_name] = {}
-                    out_intergenic_dict[region_name][gb_base_name] = this_seq
+            for go_record, seq_record in enumerate(this_records):
+                try:
+                    this_description = seq_record.description.replace("\n", " ").strip()
+                    gene_regions, intergenic_regions = get_seqs(seq_record, types,
+                                                                options.ignore_format_error, options.product_to_gene)
+                    for region_name, start, end, strand, this_seq in gene_regions:
+                        if region_name not in out_gene_dict:
+                            out_gene_dict[region_name] = {}
+                        out_gene_dict[region_name][gb_base_name + "--" + this_description] = this_seq
+                    for region_name, start, end, strand, this_seq in intergenic_regions:
+                        if region_name not in out_intergenic_dict:
+                            out_intergenic_dict[region_name] = {}
+                        out_intergenic_dict[region_name][gb_base_name + "--" + this_description] = this_seq
+                except NotImplementedError as e:
+                    sys.stdout.write("Err loc: " + str(go_record + 1) + "th record in file " + this_gb + "\n")
+                    sys.stdout.write("\nUse \"--ignore-format-error\" to ignore this error. Not suggested.\n")
+                    raise e
     #
     if options.one_copy:
         go_to = 0
@@ -437,6 +443,7 @@ def main():
     write_statistics(os.path.join(options.out_put, "statistics.txt"), base_name_list, out_gene_dict, out_intergenic_dict)
 
     sys.stdout.write("Time cost: "+str(time.time() - time0) + "\n")
+
 
 if __name__ == '__main__':
     sys.stdout.write("By jinjianjun@mail.kib.ac.cn 2017\n")
