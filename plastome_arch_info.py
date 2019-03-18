@@ -398,9 +398,10 @@ def detect_architecture(sequence, min_repeat_length, accepted_char):
         # Sorting makes:
         # direct1==1 and direct2==-1
         # start1 be the smallest forward start
-        ir_locations_1 = sorted(all_repeats[0], key=lambda x: -x["direction"])
-        ir_locations_2 = sorted(reverse_repeats_info(ir_locations_1), key=lambda x: -x["direction"])
-        ir_locations = sorted([ir_locations_1, ir_locations_2], key=lambda x: x[0]["start"])[0]
+        ir_locations_1 = sorted(all_repeats[0], key=lambda x: (-x["direction"], x["start"]))
+        ir_locations_2 = sorted(reverse_repeats_info(ir_locations_1), key=lambda x: (-x["direction"], x["start"]))
+        ir_locations = sorted([ir_locations_1, ir_locations_2],
+                              key=lambda x: (-max([y["direction"] for y in x]), x[0]["start"]))[0]
         if len(ir_locations) != 2:
             return "-", "-", "-", "not canonical IR"
         elif ir_locations[0]["direction"] == ir_locations[1]["direction"]:
