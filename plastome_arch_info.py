@@ -237,6 +237,9 @@ def find_exact_repeats(sequence_string, min_repeat_length, circular,
                 last_connection = set()
             else:
                 last_connection = this_connection
+            # the whole seq is a repeat, problematic?
+            if repeats and (repeats[0][0][1] - repeats[0][0][0] + repeats[0][0][2]) % raw_seq_length == 0:
+                break
     else:
         for i in range(len_indices):
             this_index = repeat_indices[i]
@@ -356,7 +359,8 @@ def find_exact_repeats(sequence_string, min_repeat_length, circular,
     count_group__ = 0
     while count_group__ < len(final_repeat):
         here_start, here_end, here_direction = final_repeat[count_group__][0]
-        if ((here_end - here_start + here_direction)*here_direction) % raw_seq_length < min_repeat_length:
+        if not (here_start == 0 and here_end == raw_seq_length - 1) and \
+                ((here_end - here_start + here_direction)*here_direction) % raw_seq_length < min_repeat_length:
             del final_repeat[count_group__]
         else:
             count_group__ += 1
@@ -397,8 +401,31 @@ def detect_architecture(sequence, min_repeat_length, accepted_char):
         ir_locations_1 = sorted(all_repeats[0], key=lambda x: -x["direction"])
         ir_locations_2 = sorted(reverse_repeats_info(ir_locations_1), key=lambda x: -x["direction"])
         ir_locations = sorted([ir_locations_1, ir_locations_2], key=lambda x: x[0]["start"])[0]
-        if len(ir_locations) != 2 or ir_locations[0]["direction"] == ir_locations[1]["direction"]:
+        if len(ir_locations) != 2:
             return "-", "-", "-", "no IR found"
+        elif ir_locations[0]["direction"] == ir_locations[1]["direction"]:
+            start1, end1, direct1 = ir_locations[0]["start"], ir_locations[0]["end"], ir_locations[0]["direction"]
+            start2, end2, direct2 = ir_locations[1]["start"], ir_locations[1]["end"], ir_locations[1]["direction"]
+            # cross the end, meaning site:seq_len in (DR1)
+            if end1 < start1:
+                if end2 >= start1:
+                    return 0, 0, ir_locations[0]["length"], "DR detected and overlaps"
+                else:
+                    return start1 - end2 - 1, 0, ir_locations[0]["length"], "DR detected and overlaps"
+            elif end2 < start2:
+                if end2 >= start1:
+                    if end1 >= start2:
+                        return 0, 0, ir_locations[0]["length"], "DR detected and overlaps"
+                    else:
+                        return start2 - end1 - 1, 0, ir_locations[0]["length"], "DR detected and overlaps"
+                elif end1 >= start2:
+                    return start1 - end2 - 1, 0, ir_locations[0]["length"], "DR detected and overlaps"
+                else:
+                    ssc, lsc = sorted([start1 - end2 - 1, start2 - end1 - 1])
+                    return lsc, ssc, ir_locations[0]["length"], "DR detected"
+            else:
+                ssc, lsc = sorted([start2 - end1 - 1, len(sequence) + start1 - end2 - 1])
+                return lsc, ssc, ir_locations[0]["length"], "DR detected"
         else:
             start1, end1, direct1 = ir_locations[0]["start"], ir_locations[0]["end"], ir_locations[0]["direction"]
             start2, end2, direct2 = ir_locations[1]["start"], ir_locations[1]["end"], ir_locations[1]["direction"]
@@ -417,10 +444,10 @@ def detect_architecture(sequence, min_repeat_length, accepted_char):
                         return end2 - end1 - 1, 0, ir_locations[0]["length"], "IR overlaps"
                 else:
                     ssc, lsc = sorted([end2 - end1 - 1, start1 - start2 - 1])
-                    return lsc, ssc, ir_locations[0]["length"], "-"
+                    return lsc, ssc, ir_locations[0]["length"], "IR detected"
             else:
                 ssc, lsc = sorted([end2 - end1 - 1, len(sequence) + start1 - start2 - 1])
-                return lsc, ssc, ir_locations[0]["length"], "-"
+                return lsc, ssc, ir_locations[0]["length"], "IR detected"
     else:
         return "-", "-", "-", "no IR found"
 
@@ -428,10 +455,10 @@ def detect_architecture(sequence, min_repeat_length, accepted_char):
 def main():
     time0 = time.time()
     sys.stdout.write("\n"
-                     "## This script helps you count the LSC/SSC/IR lengths from a batch of plastome sequences.\n"
+                     "## This script helps you count the LSC/SSC/IR-DR lengths from a batch of plastome sequences.\n"
                      "## by jinjianjun@mail.kib.ac.cn\n\n")
     options, argv = get_options()
-    sys.stdout.write("file_name\tsequence_name\ttotal_length\tLSC_length\tSSC_length\tIR_length\tNotes\n")
+    sys.stdout.write("file_name\tsequence_name\ttotal_length\tLSC_length\tSSC_length\tIR/DR_length\tNotes\n")
     if options.output:
         out_handler = open(options.output, "w")
         out_handler.close()
