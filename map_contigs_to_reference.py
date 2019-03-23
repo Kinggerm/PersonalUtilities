@@ -346,32 +346,24 @@ def detect_repeats(sequence_string, min_repeat_length, circular, log,
             #     print('points to repeats', points_to_repeats)
             #     print('kinds del from points', kinds_del_from_points)
             #     print()
-            for repeat_kind in kinds_del_from_points:
-                for now_start, now_go_to, now_direction in repeats[repeat_kind]:
-                    connection_del_from_points = ((now_go_to - (word_size - 1) * (now_direction == 1)) % raw_seq_len,
-                                                  now_direction)
-                    if connection_del_from_points in points_to_repeats:
-                        count_this_group = 0
-                        while count_this_group < len(points_to_repeats[connection_del_from_points]):
-                            if points_to_repeats[connection_del_from_points][count_this_group][0] == repeat_kind:
-                                del points_to_repeats[connection_del_from_points][count_this_group]
-                            else:
-                                count_this_group += 1
-                        if not len(points_to_repeats[connection_del_from_points]):
-                            del points_to_repeats[connection_del_from_points]
-
-            # if this_index == test_id:
-            #     print('points to repeats2', points_to_repeats)
-            #     print()
-            for one_connection in last_connection:
-                here_id, direction_trans = one_connection
+            # Loop 2
+            for last_con in list(points_to_repeats):
+                count_ids = 0
+                while count_ids < len(points_to_repeats[last_con]):
+                    if points_to_repeats[last_con][count_ids][0] in repeats_to_stop:
+                        del points_to_repeats[last_con][count_ids]
+                    else:
+                        count_ids += 1
+                if not len(points_to_repeats[last_con]):
+                    del points_to_repeats[last_con]
+            # Loop 3
+            new_pointer = {}
+            for last_con in points_to_repeats:
+                here_id, direction_trans = last_con
                 candidate_new_connect = ((here_id + direction_trans) % raw_seq_len, direction_trans)
-                if candidate_new_connect in this_connection:
-                    if one_connection in points_to_repeats:
-                        points_to_repeats[candidate_new_connect] = []
-                        for one_repeat_id in points_to_repeats[one_connection]:
-                            points_to_repeats[candidate_new_connect].append(one_repeat_id)
-                        del points_to_repeats[one_connection]
+                if candidate_new_connect in this_connection:  # and last_con in points_to_repeats:
+                    new_pointer[candidate_new_connect] = list(points_to_repeats[last_con])
+            points_to_repeats = new_pointer
             # if this_index == test_id:
             #     print('points to repeats3', points_to_repeats)
             #     print()
@@ -478,32 +470,24 @@ def detect_repeats(sequence_string, min_repeat_length, circular, log,
             #     print('points to repeats', points_to_repeats)
             #     print('kinds del from points', kinds_del_from_points)
             #     print()
-            for repeat_kind in kinds_del_from_points:
-                for now_start, now_go_to, now_direction in repeats[repeat_kind]:
-                    connection_del_from_points = (now_go_to - (word_size - 1) * (now_direction == 1),
-                                                  now_direction)
-                    if connection_del_from_points in points_to_repeats:
-                        count_this_group = 0
-                        while count_this_group < len(points_to_repeats[connection_del_from_points]):
-                            if points_to_repeats[connection_del_from_points][count_this_group][0] == repeat_kind:
-                                del points_to_repeats[connection_del_from_points][count_this_group]
-                            else:
-                                count_this_group += 1
-                        if not len(points_to_repeats[connection_del_from_points]):
-                            del points_to_repeats[connection_del_from_points]
-
-            # if this_index == test_id:
-            #     print('points to repeats2', points_to_repeats)
-            #     print()
-            for one_connection in last_connection:
-                here_id, direction_trans = one_connection
-                candidate_new_connect = (here_id + direction_trans, direction_trans)
-                if candidate_new_connect in this_connection:
-                    if one_connection in points_to_repeats:
-                        points_to_repeats[candidate_new_connect] = []
-                        for one_repeat_id in points_to_repeats[one_connection]:
-                            points_to_repeats[candidate_new_connect].append(one_repeat_id)
-                        del points_to_repeats[one_connection]
+            # Loop 2
+            for last_con in list(points_to_repeats):
+                count_ids = 0
+                while count_ids < len(points_to_repeats[last_con]):
+                    if points_to_repeats[last_con][count_ids][0] in repeats_to_stop:
+                        del points_to_repeats[last_con][count_ids]
+                    else:
+                        count_ids += 1
+                if not len(points_to_repeats[last_con]):
+                    del points_to_repeats[last_con]
+            # Loop 3
+            new_pointer = {}
+            for last_con in points_to_repeats:
+                here_id, direction_trans = last_con
+                candidate_new_connect = ((here_id + direction_trans) % raw_seq_len, direction_trans)
+                if candidate_new_connect in this_connection:  # and last_con in points_to_repeats:
+                    new_pointer[candidate_new_connect] = list(points_to_repeats[last_con])
+            points_to_repeats = new_pointer
             # if this_index == test_id:
             #     print('points to repeats3', points_to_repeats)
             #     print()
