@@ -154,16 +154,16 @@ def find_exact_repeats(sequence_string, min_repeat_length, circular,
                             repeats_to_stop[repeat_kind][repeat_num] = one_connection
                         else:
                             repeats_to_stop[repeat_kind] = {repeat_num: one_connection}
-                        kinds_del_from_active.add(repeat_kind)
-            for repeat_kind in kinds_del_from_active:
+                        kinds_del_from_active.add((repeat_kind, repeat_num))
+            for repeat_kind, repeat_num in kinds_del_from_active:
                 for now_start, now_go_to, n_direction in repeats[repeat_kind]:
                     connection_del_from_points = ((now_go_to - (word_size - 1) * (n_direction == 1)) % raw_seq_length,
                                                   n_direction)
                     if connection_del_from_points in active_connection_to_repeats:
                         count_this_group = 0
                         while count_this_group < len(active_connection_to_repeats[connection_del_from_points]):
-                            if active_connection_to_repeats[connection_del_from_points][count_this_group][0]\
-                                    == repeat_kind:
+                            if active_connection_to_repeats[connection_del_from_points][count_this_group]\
+                                    == (repeat_kind, repeat_num):
                                 del active_connection_to_repeats[connection_del_from_points][count_this_group]
                             else:
                                 count_this_group += 1
@@ -263,16 +263,17 @@ def find_exact_repeats(sequence_string, min_repeat_length, circular,
                             repeats_to_stop[repeat_kind][repeat_num] = one_connection
                         else:
                             repeats_to_stop[repeat_kind] = {repeat_num: one_connection}
-                        kinds_del_from_active.add(repeat_kind)
+                        kinds_del_from_active.add((repeat_kind, repeat_num))
             # print("kinds_del_from_active", kinds_del_from_active)
-            for repeat_kind in kinds_del_from_active:
+            for repeat_kind, repeat_num in kinds_del_from_active:
                 for now_start, now_go_to, n_direction in repeats[repeat_kind]:
                     connection_del_from_points = (now_go_to - (word_size - 1) * (n_direction == 1),
                                                   n_direction)
                     if connection_del_from_points in active_connection_to_repeats:
                         count_this_group = 0
                         while count_this_group < len(active_connection_to_repeats[connection_del_from_points]):
-                            if active_connection_to_repeats[connection_del_from_points][count_this_group][0] == repeat_kind:
+                            if active_connection_to_repeats[connection_del_from_points][count_this_group] \
+                                    == (repeat_kind, repeat_num):
                                 del active_connection_to_repeats[connection_del_from_points][count_this_group]
                             else:
                                 count_this_group += 1
@@ -458,6 +459,9 @@ def main():
     sys.stdout.write("\n"
                      "## This script helps you count the LSC/SSC/IR-DR lengths from a batch of plastome sequences.\n"
                      "## by jinjianjun@mail.kib.ac.cn\n\n")
+    sys.stdout.write("This script was deprecated and moved to https://github.com/Kinggerm/GetOrganelle/Utilities\n"
+                     "Visit GetOrganelle for an updated version.\n")
+    exit()
     options, argv = get_options()
     sys.stdout.write("file_name\tsequence_name\ttotal_length\tLSC_length\tSSC_length\tIR/DR_length\tNotes\n")
     if options.output:
