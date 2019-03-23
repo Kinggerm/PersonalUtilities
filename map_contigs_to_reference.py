@@ -328,7 +328,6 @@ def detect_repeats(sequence_string, min_repeat_length, circular, log,
             # Loop 4: add new pointers if shorter repeats should be continued with less alias
             # Loop 5: update the repeats according to pointers
             repeats_to_stop = {}
-            kinds_del_from_points = set()
             for one_connection in last_connection:
                 here_id, direction_trans = one_connection
                 candidate_new_connect = ((here_id + direction_trans) % raw_seq_len, direction_trans)
@@ -339,7 +338,6 @@ def detect_repeats(sequence_string, min_repeat_length, circular, log,
                             repeats_to_stop[repeat_kind][repeat_num] = one_connection
                         else:
                             repeats_to_stop[repeat_kind] = {repeat_num: one_connection}
-                        kinds_del_from_points.add(repeat_kind)
             # if this_index == test_id:
             #     print(test_id)
             #     print('repeats to stop', repeats_to_stop)
@@ -452,7 +450,6 @@ def detect_repeats(sequence_string, min_repeat_length, circular, log,
             # Loop 4: add new pointers if shorter repeats should be continued with less alias
             # Loop 5: update the repeats according to pointers
             repeats_to_stop = {}
-            kinds_del_from_points = set()
             for one_connection in last_connection:
                 here_id, direction_trans = one_connection
                 candidate_new_connect = (here_id + direction_trans, direction_trans)
@@ -463,7 +460,6 @@ def detect_repeats(sequence_string, min_repeat_length, circular, log,
                             repeats_to_stop[repeat_kind][repeat_num] = one_connection
                         else:
                             repeats_to_stop[repeat_kind] = {repeat_num: one_connection}
-                        kinds_del_from_points.add(repeat_kind)
             # if this_index == test_id:
             #     print(test_id)
             #     print('repeats to stop', repeats_to_stop)
