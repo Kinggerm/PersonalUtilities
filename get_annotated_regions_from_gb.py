@@ -8,8 +8,17 @@ from optparse import OptionParser
 from platform import system
 from glob import glob
 
-
 # Copyright(C) 2017 Jianjun Jin
+
+
+major_version, minor_version = sys.version_info[:2]
+if major_version == 2 and minor_version >= 7:
+    python_version = "2.7+"
+elif major_version == 3 and minor_version >= 5:
+    python_version = "3.5+"
+else:
+    sys.stdout.write("Python version have to be 2.7+ or 3.5+")
+    sys.exit(0)
 
 
 def get_options():
@@ -46,14 +55,31 @@ def get_options():
     return options, argv
 
 
-translator = str.maketrans("ATGCRMYKHBDVatgcrmykhbdv", "TACGYKRMDVHBtacgykrmdvhb")
+if python_version == "2.7+":
+    # python2
+    import string
+    translator = string.maketrans("ATGCRMYKHBDVatgcrmykhbdv", "TACGYKRMDVHBtacgykrmdvhb")
+
+
+    def complementary_seq(input_seq):
+        return string.translate(input_seq, translator)[::-1]
+
+else:
+    # python3
+    translator = str.maketrans("ATGCRMYKHBDVatgcrmykhbdv", "TACGYKRMDVHBtacgykrmdvhb")
+
+
+    def complementary_seq(input_seq):
+        return str.translate(input_seq, translator)[::-1]
+
+
+def complementary_seqs(input_seq_iter):
+    return tuple([complementary_seq(seq) for seq in input_seq_iter])
+
+
 missing_base = {"N", "?", "n"}
 head_ = "_+_"
 tail_ = "_-_"
-
-
-def complementary_seq(input_seq):
-    return str.translate(input_seq, translator)[::-1]
 
 
 def count_n(seq):
