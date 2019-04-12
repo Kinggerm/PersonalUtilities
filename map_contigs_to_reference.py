@@ -1585,6 +1585,7 @@ def merge_hit_site_dicts(h_site_dicts, q_range_dicts, q_range_sets, sequential_n
         h_gap_start = ((name1_info['h'][1] + 1) - 1) % total_len + 1
         h_gap_end = ((name2_info['h'][0] - 1) - 1) % total_len + 1
         hit_gap = (h_gap_end - h_gap_start + 1) % total_len
+        # print(in_seq_dict)
         this_seq_1 = in_seq_dict[name_short_1]
         this_seq_2 = in_seq_dict[name_short_2]
         merged = False
@@ -2497,7 +2498,8 @@ def main():
                 edge_connections, kmer = {}, 0
             sequential_name = []
             raw_query_seqs = read_fasta_gb_head(raw_seq_file)
-            in_seq_dict = {raw_query_seqs[0][k]: raw_query_seqs[1][k] for k in range(len(raw_query_seqs[0]))}
+            in_seq_dict = {raw_query_seqs[0][k].split("--")[0]: raw_query_seqs[1][k]
+                           for k in range(len(raw_query_seqs[0]))}
             # test_name = "EDGE_86_length_31013_cov_41.73211:EDGE_86_length_31013_cov_41.73211"
             # if test_name in in_seq_dict:
             #     print(in_seq_dict[test_name])
