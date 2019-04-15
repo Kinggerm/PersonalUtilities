@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#coding: utf8
 
 from optparse import OptionParser, OptionGroup
 import xml.etree.cElementTree as ET
