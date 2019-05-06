@@ -207,9 +207,10 @@ def require_options(print_title):
                 parser.print_help()
                 sys.stdout.write("\nIllegal minimum repeat length input!")
                 exit()
-    if options.keep_repeat_ends > int(options.min_repeat/2):
-        sys.stdout.write("The value of keep_repeat_ends is required to be smaller than half minimum repeat.")
-        exit()
+    if options.min_repeat != inf:
+        if options.keep_repeat_ends > int(options.min_repeat/2):
+            sys.stdout.write("The value of keep_repeat_ends is required to be smaller than half minimum repeat.")
+            exit()
     if not os.path.exists(options.output_directory):
         os.mkdir(options.output_directory)
     if not os.path.exists(os.path.join(options.output_directory, 'Blast')):
