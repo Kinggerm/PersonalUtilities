@@ -14,7 +14,10 @@ import os
 import time
 import re
 import math
-from math import inf
+try:
+    from math import inf
+except ImportError:
+    inf = float("inf")
 
 try:
     # python2
