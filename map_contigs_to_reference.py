@@ -2444,6 +2444,7 @@ def main():
             """Initialization and execute blast"""
             raw_seq_file = str(args[count_fasta])
             is_fastg = raw_seq_file.endswith('.fastg')
+            modified = False
             if is_fastg:
                 b_word_size = options.blast_word_size_fg
                 b_evalue = options.blast_evalue_fg
@@ -2465,7 +2466,6 @@ def main():
                 b_word_size = options.blast_word_size
                 b_evalue = options.blast_evalue
                 if options.min_repeat != inf:
-                    modified = False
                     seqs_to_remove_repeats = read_fasta_gb_head(raw_seq_file)
                     for seq_id in range(len(seqs_to_remove_repeats[0])):
                         this_seq = seqs_to_remove_repeats[1][seq_id]
@@ -2563,7 +2563,7 @@ def main():
                                    h_site_dicts), total_site_dict, log)
             del q_range_dict, h_site_dicts
             log.info("Analysing " + args[count_fasta] + ' finished.\n')
-            if not is_fastg and options.min_repeat and modified and not options.keep_temp:
+            if not is_fastg and options.min_repeat!=inf and modified and not options.keep_temp:
                 os.remove(raw_seq_file)
 
         log.info("Generating final result ...")
