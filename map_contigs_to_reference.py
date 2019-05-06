@@ -800,6 +800,8 @@ def check_db(reference_fa_base, min_repeat, word_size, keep_repeat_ends, del_ran
                                               add_gap, log)
                 else:
                     this_seq = ref_fasta[1][0]
+            else:
+                this_seq = ref_fasta[1][0]
             reference_fa_base += '.modified'
             write_fasta(out_dir=reference_fa_base,
                         matrix=[[ref_fasta[0][0]], [this_seq], ref_fasta[2]], overwrite=True)
