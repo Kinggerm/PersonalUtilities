@@ -14,6 +14,7 @@ import os
 import time
 import re
 import math
+from math import inf
 
 try:
     # python2
@@ -111,9 +112,9 @@ def require_options(print_title):
                                        'Default: False.')
     group_pretreatment.add_option('--word-size', dest='word_size', default=50, type=int,
                                   help='Word size used to detect repeats. Default: 50.')
-    group_pretreatment.add_option('--min-repeat', dest='min_repeat', default=1000, type=int,
+    group_pretreatment.add_option('--min-repeat', dest='min_repeat', default=1000, type=str,
                                   help="Minimum repeat to detect and delete from query and reference fasta file. "
-                                       "Typically used to remove IR. Choose 0 to disable, choose >= 50 to enable. "
+                                       "Typically used to remove IR. Choose >= 50 to enable. Choose inf to disable. "
                                        "Default: 1000.")
     group_pretreatment.add_option('--add-gap-repeat', dest='add_gap_repeat', default=0, type=int,
                                   help='Gap to add to mark the removed repeats. Default: 0.')
@@ -192,10 +193,17 @@ def require_options(print_title):
         parser.print_help()
         sys.stdout.write('\n######################################\nERROR: Insufficient REQUIRED arguments!\n\n')
         exit()
-    if 0 < options.min_repeat < 50 or options.min_repeat < 0:
-        parser.print_help()
-        sys.stdout.write("\nIllegal minimum repeat length input!")
-        exit()
+    if options.min_repeat == "inf":
+        options.min_repeat = inf
+    else:
+        if not options.min_repeat.isdigit():
+            sys.stdout.write("\nIllegal minimum repeat length input: Integer!")
+            exit()
+        else:
+            if options.min_repeat < 50:
+                parser.print_help()
+                sys.stdout.write("\nIllegal minimum repeat length input!")
+                exit()
     if options.keep_repeat_ends > int(options.min_repeat/2):
         sys.stdout.write("The value of keep_repeat_ends is required to be smaller than half minimum repeat.")
         exit()
@@ -781,7 +789,7 @@ def check_db(reference_fa_base, min_repeat, word_size, keep_repeat_ends, del_ran
         ref_fasta = read_fasta_gb_head(reference_fa_base)
         if len(ref_fasta[0]) > 1:
             """Removing repeats from reference"""
-            if min_repeat:
+            if min_repeat != inf:
                 repeats = detect_repeats(ref_fasta[1][0], min_repeat, circular, log, word_size=word_size)
                 if repeats[0]:
                     this_seq = remove_repeats(ref_fasta[1][0], repeats, keep_repeat_ends, del_randomly, circular,
@@ -797,7 +805,7 @@ def check_db(reference_fa_base, min_repeat, word_size, keep_repeat_ends, del_ran
             exit()
         else:
             """Removing repeats from reference"""
-            if min_repeat:
+            if min_repeat != inf:
                 repeats = detect_repeats(ref_fasta[1][0], min_repeat, circular, log, word_size=word_size)
                 if repeats[0]:
                     this_seq = remove_repeats(ref_fasta[1][0], repeats, keep_repeat_ends, del_randomly, circular,
@@ -2450,7 +2458,7 @@ def main():
             else:
                 b_word_size = options.blast_word_size
                 b_evalue = options.blast_evalue
-                if options.min_repeat:
+                if options.min_repeat != inf:
                     modified = False
                     seqs_to_remove_repeats = read_fasta_gb_head(raw_seq_file)
                     for seq_id in range(len(seqs_to_remove_repeats[0])):
