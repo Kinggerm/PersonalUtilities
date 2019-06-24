@@ -457,7 +457,7 @@ def main():
                     base_name_list.append(this_seq_name)
                 except NotImplementedError as e:
                     sys.stdout.write("Err loc: " + str(go_record + 1) + "th record in file " + this_gb + "\n")
-                    sys.stdout.write("\nAdd available key in the qualifiers to \"--keys\".\n")
+                    sys.stdout.write("\nAdd available key in the qualifiers to \"--keys\".")
                     sys.stdout.write("\nOr use \"--ignore-format-error\" to skip this annotation record.\n")
                     raise e
     #
