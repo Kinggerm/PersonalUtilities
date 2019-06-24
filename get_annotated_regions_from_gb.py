@@ -38,8 +38,11 @@ def get_options():
                       help="first|longest|leastN|leastN_longest (default).")
     parser.add_option("--separate-exon", dest="combine_exon", default=True, action="store_false",
                       help="By default, combining exons.")
+    parser.add_option("--name", dest="gene_keys", default="gene,label,product,note",
+                      help="The key to the gene name: gene, label, product or other keys in the qualifiers region."
+                           "Default: %default.")
     parser.add_option("--ignore-format-error", dest="ignore_format_error", default=False, action="store_true",
-                      help="Skip the Error: key \"gene\" not found in annotation. Not suggested.")
+                      help="Skip the Error: key \"*\" not found in annotation. Not suggested.")
     parser.add_option("--translate-to-product", dest="product_to_gene", default=True, action="store_false",
                       help="Translate the tRNA gene name to the form of their product. Default: False")
     parser.add_option("--overwrite", dest="overwrite", default=False, action="store_true",
@@ -154,7 +157,7 @@ def translate_product_to_gene(product_name, do_it):
         return product_name
 
 
-def get_seqs(seq_record, accepted_types, ignore_format_error=False, trans_product_to_gene=True):
+def get_seqs(seq_record, accepted_types, gene_keys, ignore_format_error=False, trans_product_to_gene=True):
     original_seq = str(seq_record.seq)
 
     def get_seq_with_gb_loc(in_location):
@@ -172,25 +175,29 @@ def get_seqs(seq_record, accepted_types, ignore_format_error=False, trans_produc
     taken_loc = set()
     for feature in seq_record.features:
         if feature.type in accepted_types:
-            if "gene" in feature.qualifiers:
-                locations = parse_bio_gb_locations(feature.location)
-                this_name = [translate_product_to_gene(feature.qualifiers["gene"][0], trans_product_to_gene), "", ""]
-                if this_name[0] not in name_counter:
-                    name_counter[this_name[0]] = 1
-                else:
-                    name_counter[this_name[0]] += 1
-                    this_name[1] = "__copy" + str(name_counter[this_name[0]])
-                if len(locations) > 1:
-                    for i, loc in enumerate(locations):
-                        this_name[2] = "__exon" + str(i + 1)
-                        if loc not in taken_loc:
-                            gene_regions.append([tuple(this_name)] + list(loc) + [get_seq_with_gb_loc(loc)])
-                            taken_loc.add(loc)
-                else:
-                    gene_regions.append([tuple(this_name)] + list(locations[0]) + [get_seq_with_gb_loc(locations[0])])
-            elif not ignore_format_error:
+            this_key_found = False
+            for gene_key in gene_keys:
+                if gene_key in feature.qualifiers:
+                    locations = parse_bio_gb_locations(feature.location)
+                    this_name = [translate_product_to_gene(feature.qualifiers[gene_key][0], trans_product_to_gene), "", ""]
+                    if this_name[0] not in name_counter:
+                        name_counter[this_name[0]] = 1
+                    else:
+                        name_counter[this_name[0]] += 1
+                        this_name[1] = "__copy" + str(name_counter[this_name[0]])
+                    if len(locations) > 1:
+                        for i, loc in enumerate(locations):
+                            this_name[2] = "__exon" + str(i + 1)
+                            if loc not in taken_loc:
+                                gene_regions.append([tuple(this_name)] + list(loc) + [get_seq_with_gb_loc(loc)])
+                                taken_loc.add(loc)
+                    else:
+                        gene_regions.append([tuple(this_name)] + list(locations[0]) + [get_seq_with_gb_loc(locations[0])])
+                    this_key_found = True
+                    break
+            if not this_key_found and not ignore_format_error:
                 sys.stdout.write("\nError: ")
-                sys.stdout.write("Key \"gene\" not found in annotation:\n")
+                sys.stdout.write("Key \"" + "/".join(gene_keys) + "\" not found in annotation:\n")
                 sys.stdout.write(str(feature))
                 raise NotImplementedError
     gene_regions.sort(key=lambda x: (x[1], -x[2], x[0]))
@@ -307,6 +314,7 @@ def main():
     time0 = time.time()
 
     options, argv = get_options()
+    options.gene_keys = options.gene_keys.split(",")
     gene_dir = os.path.join(options.out_put, "gene")
     intergenic_dir = os.path.join(options.out_put, "intergene")
     if not os.path.exists(options.out_put):
@@ -343,7 +351,7 @@ def main():
                     this_seq_name = gb_base_name + \
                                     ("--" + str(go_record + 1)) * int(bool(len(this_records) > 1)) + \
                                     ("--" + this_description) * int(bool(this_description))
-                    gene_regions, intergenic_regions = get_seqs(seq_record, types,
+                    gene_regions, intergenic_regions = get_seqs(seq_record, types, options.gene_keys,
                                                                 options.ignore_format_error, options.product_to_gene)
                     if options.one_copy:
                         temp_gene_dict = {}
@@ -449,7 +457,8 @@ def main():
                     base_name_list.append(this_seq_name)
                 except NotImplementedError as e:
                     sys.stdout.write("Err loc: " + str(go_record + 1) + "th record in file " + this_gb + "\n")
-                    sys.stdout.write("\nUse \"--ignore-format-error\" to ignore this error. Not suggested.\n")
+                    sys.stdout.write("\nAdd available key in the qualifiers to \"--name\".\n")
+                    sys.stdout.write("\nOr use \"--ignore-format-error\" to skip this annotation record.\n")
                     raise e
     #
     # if options.one_copy:
