@@ -38,7 +38,7 @@ def get_options():
                       help="first|longest|leastN|leastN_longest (default).")
     parser.add_option("--separate-exon", dest="combine_exon", default=True, action="store_false",
                       help="By default, combining exons.")
-    parser.add_option("--name", dest="gene_keys", default="gene,label,product,note",
+    parser.add_option("--keys", dest="gene_keys", default="gene,label,product,note",
                       help="The key to the gene name: gene, label, product or other keys in the qualifiers region."
                            "Default: %default.")
     parser.add_option("--ignore-format-error", dest="ignore_format_error", default=False, action="store_true",
@@ -457,7 +457,7 @@ def main():
                     base_name_list.append(this_seq_name)
                 except NotImplementedError as e:
                     sys.stdout.write("Err loc: " + str(go_record + 1) + "th record in file " + this_gb + "\n")
-                    sys.stdout.write("\nAdd available key in the qualifiers to \"--name\".\n")
+                    sys.stdout.write("\nAdd available key in the qualifiers to \"--keys\".\n")
                     sys.stdout.write("\nOr use \"--ignore-format-error\" to skip this annotation record.\n")
                     raise e
     #
