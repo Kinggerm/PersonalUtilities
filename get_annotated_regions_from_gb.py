@@ -197,7 +197,7 @@ def get_seqs(seq_record, accepted_types, gene_keys, ignore_format_error=False, t
                     break
             if not this_key_found and not ignore_format_error:
                 sys.stdout.write("\nError: ")
-                sys.stdout.write("Key \"" + "/".join(gene_keys) + "\" not found in annotation:\n")
+                sys.stdout.write("Present key(s) \"" + ",".join(gene_keys) + "\" not found in annotation:\n")
                 sys.stdout.write(str(feature))
                 raise NotImplementedError
     gene_regions.sort(key=lambda x: (x[1], -x[2], x[0]))
@@ -457,9 +457,12 @@ def main():
                     base_name_list.append(this_seq_name)
                 except NotImplementedError as e:
                     sys.stdout.write("Err loc: " + str(go_record + 1) + "th record in file " + this_gb + "\n")
-                    sys.stdout.write("\nAdd available key in the qualifiers to \"--keys\".")
-                    sys.stdout.write("\nOr use \"--ignore-format-error\" to skip this annotation record.\n")
-                    raise e
+                    sys.stdout.write("\nSolutions: "
+                                     "\n1. Add suitable key (in above qualifiers part) to \"--keys\".")
+                    sys.stdout.write("\n2. Add suitable present key and its value to the problematic annotation record.")
+                    sys.stdout.write("\n3. Use \"--ignore-format-error\" to skip this annotation record.\n")
+                    sys.exit()
+                    # raise e
     #
     # if options.one_copy:
     #     go_to = 0
