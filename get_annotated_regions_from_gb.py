@@ -3,7 +3,12 @@
 import os
 import time
 import sys
-from Bio import SeqIO, SeqFeature
+try:
+    from Bio import SeqIO, SeqFeature
+except ImportError:
+    sys.stdout.write("Python package biopython not found!\n"
+                     "You could use \"pip install biopython\" to install it.")
+    sys.exit()
 from optparse import OptionParser
 from platform import system
 from glob import glob
