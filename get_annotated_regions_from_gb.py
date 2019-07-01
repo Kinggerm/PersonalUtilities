@@ -7,7 +7,7 @@ try:
     from Bio import SeqIO, SeqFeature
 except ImportError:
     sys.stdout.write("Python package biopython not found!\n"
-                     "You could use \"pip install biopython\" to install it.")
+                     "You could use \"pip install biopython\" to install it.\n")
     sys.exit()
 from optparse import OptionParser
 from platform import system
@@ -220,7 +220,7 @@ def get_seqs(seq_record, accepted_types, gene_keys, ignore_format_error=False, t
             else:
                 name_counter[tuple(this_name[:2])] += 1
                 this_name[2] = "__copy" + str(name_counter[tuple(this_name[:2])])
-            this_loc = [gene_regions[0][2], gene_regions[0][1], 1*int(2*((anchor1 <= anchor2) - 0.5))]
+            this_loc = [gene_regions[0][2], gene_regions[0][1], 1 * int(2 * ((anchor1 <= anchor2) - 0.5))]
             intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc)])
     elif len(gene_regions) > 1:
         first_region = gene_regions[0]
@@ -248,7 +248,7 @@ def get_seqs(seq_record, accepted_types, gene_keys, ignore_format_error=False, t
                 else:
                     name_counter[tuple(this_name[:2])] += 1
                     this_name[2] = "__copy" + str(name_counter[tuple(this_name[:2])])
-                this_loc = [last_region[2], first_region[1], 1*int(2*((anchor1 <= anchor2) - 0.5))]
+                this_loc = [last_region[2], first_region[1], 1 * int(2 * ((anchor1 <= anchor2) - 0.5))]
                 intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc)])
         else:
             anchor1 = [last_region[0][0], last_region[0][2], tail_ if last_region[3] == 1 else head_]
@@ -333,7 +333,8 @@ def main():
             if not os.path.exists(intergenic_dir):
                 os.mkdir(intergenic_dir)
         else:
-            raise FileExistsError(options.out_put + " exists!")
+            # raise FileExistsError(options.out_put + " exists!")
+            raise IOError(options.out_put + " exists!")
 
     types = set()
     for this_t in options.gene_types.split(","):
@@ -409,17 +410,17 @@ def main():
                             go_to += go_plus
                         # processing intergene
                         go_to = 0
-                        sorted_inter_names = sorted(list(temp_inter_dict), key=lambda x: x[:2])
+                        sorted_inter_names = sorted(list(temp_inter_dict), key=lambda x: (x[:2], x[2]))
                         while go_to < len(sorted_inter_names):
                             inter_name = sorted_inter_names[go_to]
                             go_plus = 1
                             while go_to + go_plus < len(sorted_inter_names):
                                 next_inter = sorted_inter_names[go_to + go_plus]
                                 if inter_name[:2] != next_inter[:2]:
-                                    if sorted_inter_names[go_to + go_plus][2]:
-                                        sys.stdout.write("Warning: cannot find " + "".join(inter_name[0]) + "--" +
-                                            "".join(inter_name[1]) + " while there's " + "".join(next_inter[0]) +
-                                            "--" + "".join(next_inter[1]) + " in " + this_seq_name + "\n")
+                                    if next_inter[2]:
+                                        sys.stdout.write("Warning: cannot find " + "".join(next_inter[0]) + "--" +
+                                            "".join(next_inter[1]) + " while there's " + "".join(next_inter[0]) +
+                                            "--" + "".join(next_inter[1]) + next_inter[2] + " in " + this_seq_name + "\n")
                                     break
                                 else:
                                     go_plus += 1
