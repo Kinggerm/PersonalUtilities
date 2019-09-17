@@ -31,7 +31,7 @@ Humulus_lupulus\tHumulus\tCannabis-Humulus clade
 
 
 def get_options():
-    parser = OptionParser(usage="check_monophyletic.py -c criteria_tab a_list_of_tree_files")
+    parser = OptionParser(usage="check_monophyletic.py -c criteria_tab tree1.tre tree2.tre tree3.tre")
     parser.add_option("-c", dest="criteria_tab",
                       help="criteria tab file with head: label\\tfamily\\tclade ...")
     parser.add_option("-r", dest="rooted", default=False, action="store_true",
