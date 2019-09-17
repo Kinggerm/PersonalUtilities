@@ -7,10 +7,33 @@ from copy import deepcopy
 from itertools import combinations
 
 
+example_tree_1_str = \
+    "(Trema_tomentosa, " \
+    "(((Trema_angustifolia, Trema_nitida)95, (Trema_aspera, Trema_discolor)87)100, "\
+    "(Parasponia_rugosa, Parasponia_parviflora)65)65, " \
+    "(Cannabis_sativa, Humulus_lupulus)100);\n"
+example_tree_2_str = "((Parasponia_parviflora, Parasponia_rugosa)69, " \
+    "(((Trema_angustifolia, Trema_nitida)95, (Trema_aspera, Trema_discolor)90)100, "\
+    "Trema_tomentosa)33, " \
+    "(Cannabis_sativa, Humulus_lupulus)100);\n"
+criteria_tab_str = """\
+label\tgenus\tbig_clade
+Trema_tomentosa\tTrema\tTrema-Parasponia clade
+Trema_angustifolia\tTrema\tTrema-Parasponia clade
+Trema_nitida\tTrema\tTrema-Parasponia clade
+Trema_aspera\tTrema\tTrema-Parasponia clade
+Trema_discolor\tTrema\tTrema-Parasponia clade
+Parasponia_rugosa\tParasponia\tTrema-Parasponia clade
+Parasponia_parviflora\tParasponia\tTrema-Parasponia clade
+Cannabis_sativa\tCannabis\tCannabis-Humulus clade
+Humulus_lupulus\tHumulus\tCannabis-Humulus clade
+"""
+
+
 def get_options():
     parser = OptionParser(usage="check_monophyletic.py -c criteria_tab a_list_of_tree_files")
     parser.add_option("-c", dest="criteria_tab",
-                      help="criteria tab file with head like this: label\tfamily\tgenus\tclade...")
+                      help="criteria tab file with head: label\\tfamily\\tclade ...")
     parser.add_option("-r", dest="rooted", default=False, action="store_true",
                       help="input tree(s) is(are) rooted. [default: %default]")
     parser.add_option("--support-cutoff", dest="support_cutoff", type="float", default=None,
@@ -19,8 +42,49 @@ def get_options():
                       help="distinguish unresolved from paraphyletic. [default: %default]")
     parser.add_option("--off-verbose", dest="verbose", default=True, action="store_false",
                       help="turn off verbose. [default: on]")
+    parser.add_option("--example", dest="generate_example", default=False, action="store_true",
+                      help="Generate local example. [default: off]")
     options, argv = parser.parse_args()
-    if not (options.criteria_tab and len(argv)):
+    if options.generate_example:
+        tree1 = "check_monophyletic--tree1.tre"
+        tree2 = "check_monophyletic--tree2.tre"
+        criteria = "check_monophyletic--criteria.tab"
+        open(tree1, "w").write(example_tree_1_str)
+        open(tree2, "w").write(example_tree_2_str)
+        open(criteria, "w").write(criteria_tab_str)
+        sys.stdout.write("\nExample files generated: \n" +
+                         os.path.realpath(tree1) + "\n" +
+                         os.path.realpath(tree2) + "\n" +
+                         os.path.realpath(criteria) + "\n" +
+                         "\n"
+                         "# Please run simple checking by:\n"
+                         "\x1b[1;36m"
+                         "check_monophyletic.py -c check_monophyletic--criteria.tab check_monophyletic--tree*tre"
+                         "\x1b[0m\n"
+                         "\n"
+                         "# If you want to export the screen-printed result to a tab file:\n"
+                         "\x1b[1;36m"
+                         "check_monophyletic.py -c check_monophyletic--criteria.tab check_monophyletic--tree*tre"
+                         "\x1b[0m"
+                         " > result.tab\n"
+                         "\n"
+                         "# If you want to extract tree(s) with \x1b[1;31mmonophyletic Trema genus\x1b[0m, "
+                         "please run filtering by:\n"
+                         "mkdir \x1b[1;31mTrema-monophyly\x1b[0m\n"
+                         "cp `"
+                         "\x1b[1;36m"
+                         "check_monophyletic.py -c check_monophyletic--criteria.tab check_monophyletic--tree*tre"
+                         "\x1b[0m"
+                         "| grep \"\x1b[1;31mgenus\\tTrema\\tmonophyletic\x1b[0m\" "
+                         "| cut -f 2` \x1b[1;31mTrema-monophyly\x1b[0m\n\n")
+                         # no color version
+                         # "# If you want to extract tree(s) with monophyletic Trema genus, please run filtering by:\n"
+                         # "mkdir Trema-monophyly\n"
+                         # "cp `
+                         # check_monophyletic.py -c check_monophyletic--criteria.tab check_monophyletic--tree*tre "
+                         # "|grep \"genus\\tTrema\\tmonophyletic\" | cut -f 2` Trema-monophyly\n\n")
+        sys.exit()
+    elif not (options.criteria_tab and len(argv)):
         parser.print_help()
         sys.stdout.write("Insufficient arguments!\n")
         sys.exit()
@@ -117,8 +181,10 @@ def slim_tree(tree, taxon_set, limit_set, verbose=True):
 def main():
     options, argv = get_options()
     criteria, keys = read_criteria(criteria_f=options.criteria_tab)
+    sys.stdout.write("TreeId\tTreeName\tGroupLevel\tGroupName\tGroupStatus\n")
     for go_to, this_tre_f in enumerate(argv):
-        sys.stdout.write(str(go_to + 1) + "th tree: " + this_tre_f + "\n")
+        sys.stdout.write("\t\t\t\t\n")
+        tree_id = str(go_to + 1)
         this_tre = get_tree(this_tre_f, edge_label=True)
         if options.support_cutoff is not None:
             this_tre = collapse_nodes(this_tre, options.support_cutoff)
@@ -155,14 +221,15 @@ def main():
                 if criteria_set[k][value] not in mono_partition:
                     if options.clarify:
                         if criteria_set[k][value] in unresolved_partition:
-                            sys.stdout.write("\t" + k + "\t" + value + "\t" + "unresolved\n")
+                            sys.stdout.write(tree_id + "\t" + this_tre_f + "\t" + k + "\t" + value + "\t" + "unresolved\n")
                         else:
-                            sys.stdout.write("\t" + k + "\t" + value + "\t" + "para/poly-phyletic\n")
+                            sys.stdout.write(tree_id + "\t" + this_tre_f + "\t" + k + "\t" + value + "\t" + "para/poly-phyletic\n")
                     else:
-                        sys.stdout.write("\t" + k + "\t" + value + "\t" + "para/poly-phyletic/unresolved\n")
+                        sys.stdout.write(tree_id + "\t" + this_tre_f + "\t" + k + "\t" + value + "\t" + "para/poly-phyletic/unresolved\n")
                 elif options.verbose:
-                    sys.stdout.write("\t" + k + "\t" + value + "\t" + "monophyletic\n")
-        sys.stdout.write("\n")
+                    sys.stdout.write(tree_id + "\t" + this_tre_f + "\t" + k + "\t" + value + "\t" + "monophyletic\n")
+        # if go_to < len(argv) - 1:
+        #     sys.stdout.write("\t\t\t\n")
 
 
 if __name__ == '__main__':
