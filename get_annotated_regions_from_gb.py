@@ -46,6 +46,11 @@ def get_options():
     parser.add_option("--keys", dest="gene_keys", default="gene,label,product,note",
                       help="The key to the gene name: gene, label, product or other keys in the qualifiers region."
                            "Default: %default.")
+    parser.add_option("--case-mode", dest="case_treatment", default="first",
+                      help="first: Gene name case-non-sensitive. Consistent to the first appearance. \n"
+                           "lower: Gene name case-non-sensitive. All gene name set to lower case. \n"
+                           "upper: Gene name case-non-sensitive. All gene name set to Upper case. \n"
+                           "raw: Gene name case-sensitive. ")
     parser.add_option("--ignore-format-error", dest="ignore_format_error", default=False, action="store_true",
                       help="Skip the Error: key \"*\" not found in annotation. Not suggested.")
     parser.add_option("--translate-to-product", dest="product_to_gene", default=True, action="store_false",
@@ -62,7 +67,10 @@ def get_options():
             new_argv.extend(glob(input_fn_pattern))
         argv = new_argv
     if options.copy_mode not in {"longest", "first", "leastN", "leastN_longest"}:
-        parser.print_help()
+        sys.stdout.write("Error: invalid value " + options.copy_mode + " for '--copy-mode'!\n")
+        sys.exit()
+    if options.case_treatment not in {"first", "upper", "lower", "raw"}:
+        sys.stdout.write("Error: invalid value " + options.case_treatment + " for '--case-mode'!\n")
         sys.exit()
     return options, argv
 
@@ -144,8 +152,24 @@ trna_translate_table = {"Ala": "A",
                         "Val": "V"}
 
 
-def translate_product_to_gene(product_name, do_it):
-    if do_it:
+gene_name_lower_to_first = {}
+
+
+def modify_gene_name(product_name, translate_product_to_gene_name, case_mode):
+    # treat case
+    if case_mode == "upper":
+        product_name = product_name.upper()
+    elif case_mode == "lower":
+        product_name = product_name.lower()
+    elif case_mode == "first":
+        if product_name.lower() in gene_name_lower_to_first:
+            product_name = gene_name_lower_to_first[product_name.lower()]
+        else:
+            gene_name_lower_to_first[product_name.lower()] = product_name
+    elif case_mode == "raw":
+        pass
+    # treat product name
+    if translate_product_to_gene_name:
         if product_name.startswith("tRNA-") or product_name.startswith("trna-"):
             short_name = product_name.replace("tRNA-", "").replace("trna-", "")
             if short_name[:3] in trna_translate_table:
@@ -155,14 +179,19 @@ def translate_product_to_gene(product_name, do_it):
             else:
                 return product_name
         elif "rrna" in product_name or "rRNA" in product_name:
-            return "rrn" + product_name.replace("rrna", "").replace("rRNA", "").replace(" ", "").replace("_", "").replace("S", "")
+            res_name = "rrn" + product_name.replace("rrna", "").replace("rRNA", "").replace(" ", "").replace("_", "")
+            if "S" in res_name:
+                if res_name[res_name.index("S") - 1].isdigit():
+                    return res_name.replace("S", "")
+            return res_name
         else:
             return product_name
     else:
         return product_name
 
 
-def get_seqs(seq_record, accepted_types, gene_keys, ignore_format_error=False, trans_product_to_gene=True):
+def get_seqs(seq_record, accepted_types, gene_keys,
+             ignore_format_error=False, trans_product_to_gene=True, case_m="first"):
     original_seq = str(seq_record.seq)
 
     def get_seq_with_gb_loc(in_location):
@@ -191,7 +220,8 @@ def get_seqs(seq_record, accepted_types, gene_keys, ignore_format_error=False, t
                         sys.stdout.write("Warning: " + str(e) + "\n")
                         break
                     else:
-                        this_name = [translate_product_to_gene(feature.qualifiers[gene_key][0], trans_product_to_gene), "", ""]
+                        this_name = [modify_gene_name(feature.qualifiers[gene_key][0], trans_product_to_gene, case_m),
+                                     "", ""]
                         if this_name[0] not in name_counter:
                             name_counter[this_name[0]] = 1
                         else:
@@ -295,9 +325,19 @@ def get_seqs(seq_record, accepted_types, gene_keys, ignore_format_error=False, t
 
 def write_fasta(out_file, seq_dict):
     names = sorted(list(seq_dict))
-    with open(out_file, "w") as out_put_handler:
-        for name in names:
-            out_put_handler.write(">" + name + "\n" + seq_dict[name] + "\n\n")
+    if os.path.exists(out_file):
+        existed_f = [x for x in os.listdir(os.path.split(out_file)[0])
+                     if x.lower() == os.path.split(out_file)[-1].lower()]
+        sys.stdout.write("Warning: running on a case-non-sensitive disk. "
+                         "Cannot create " + out_file + " while " + existed_f[0] + " exists! "
+                         "Appending seqs to " + existed_f[0] + " ... \n")
+        with open(out_file, "a") as out_put_handler:
+            for name in names:
+                out_put_handler.write(">" + name + "\n" + seq_dict[name] + "\n\n")
+    else:
+        with open(out_file, "w") as out_put_handler:
+            for name in names:
+                out_put_handler.write(">" + name + "\n" + seq_dict[name] + "\n\n")
 
 
 def write_statistics(out_file, base_name_list, gene_dict, intergene_dict):
@@ -365,7 +405,9 @@ def main():
                                     ("--" + str(go_record + 1)) * int(bool(len(this_records) > 1)) + \
                                     ("--" + this_description) * int(bool(this_description))
                     gene_regions, intergenic_regions = get_seqs(seq_record, types, options.gene_keys,
-                                                                options.ignore_format_error, options.product_to_gene)
+                                                                options.ignore_format_error,
+                                                                options.product_to_gene,
+                                                                options.case_treatment)
                     if options.one_copy:
                         temp_gene_dict = {}
                         for region_name, start, end, strand, this_seq in gene_regions:
@@ -475,95 +517,9 @@ def main():
                     sys.stdout.write("\n2. Add suitable present key and its value to the problematic annotation record.")
                     sys.stdout.write("\n3. Use \"--ignore-format-error\" to skip this annotation record.\n")
                     sys.exit()
-                    # raise e
-    #
-    # if options.one_copy:
-    #     go_to = 0
-    #     sorted_region_names = sorted(list(out_gene_dict), key=lambda x: (x[0], x[2], x[1]))
-    #     while go_to < len(sorted_region_names):
-    #         region_name = sorted_region_names[go_to]
-    #         go_plus = 1
-    #         # if bool(next_loci[1]) == True, multiple copies exist.
-    #         while go_to + go_plus < len(sorted_region_names):
-    #             next_loci = sorted_region_names[go_to + go_plus]
-    #             if (next_loci[0], next_loci[2]) != (region_name[0], region_name[2]):
-    #                 if next_loci[1]:
-    #                     # if next_loci[0], next_loci[2]) != (region_name[0], region_name[2]
-    #                     # then next_loci seemed to be the first copy of a new region
-    #                     # but the first copy of a new region should not have a __copy label (next_loci[1])
-    #                     # so next_loci is not a new region, but the same region with different exon
-    #                     sys.stdout.write("Warning: cannot find " + "".join([next_loci[0], next_loci[2]]) +
-    #                                      " while there's " + "".join(next_loci) + "\n")
-    #                 break
-    #             else:
-    #                 go_plus += 1
-    #         if go_plus > 1:
-    #             for gb_name in out_gene_dict[region_name]:
-    #                 this_seqs = []
-    #                 for go_candidate in range(go_to, go_to + go_plus):
-    #                     if gb_name in out_gene_dict[sorted_region_names[go_candidate]]:
-    #                         this_seqs.append(out_gene_dict[sorted_region_names[go_candidate]][gb_name])
-    #                 if len(set(this_seqs)) > 1:
-    #                     sys.stdout.write("Warning: distinct copies of " + "".join(region_name) + " in " + gb_name + "\n")
-    #                 if options.copy_mode == "longest":
-    #                     out_gene_dict[region_name][gb_name] = sorted(this_seqs, key=lambda x: -len(x))[0]
-    #                 elif options.copy_mode == "leastN":
-    #                     out_gene_dict[region_name][gb_name] = sorted(this_seqs, key=lambda x: count_n(x))[0]
-    #                 elif options.copy_mode == "leastN_longest":
-    #                     out_gene_dict[region_name][gb_name] = sorted(this_seqs, key=lambda x: (count_n(x), -len(x)))[0]
-    #             for go_del in range(go_to + 1, go_to + go_plus):
-    #                 del out_gene_dict[sorted_region_names[go_del]]
-    #         go_to += go_plus
-    #         # if "__copy" in region_name:
-    #         #     # check identical
-    #         #     for gb_name in out_gene_dict[region_name]:
-    #         #         original_region_name = region_name.split("__")
-    #         #         original_region_name = "__".join(original_region_name[:1] + original_region_name[2:])
-    #         #         if original_region_name not in out_gene_dict:
-    #         #             sys.stdout.write("Warning: distinct copies of "
-    #         #                              + original_region_name + " in " + gb_name + "\n")
-    #         #         elif out_gene_dict[region_name][gb_name] != out_gene_dict[original_region_name][gb_name]:
-    #         #             sys.stdout.write("Warning: distinct copies of "
-    #         #                              + original_region_name + " in " + gb_name + "\n")
-    #         #     del out_gene_dict[region_name]
-    #         # go_to += 1
-    #     go_to = 0
-    #     sorted_inter_names = sorted(list(out_intergenic_dict), key=lambda x: x[:2])
-    #     while go_to < len(sorted_inter_names):
-    #         inter_name = sorted_inter_names[go_to]
-    #         go_plus = 1
-    #         while go_to + go_plus < len(sorted_inter_names):
-    #             next_inter = sorted_inter_names[go_to + go_plus]
-    #             if inter_name[:2] != next_inter[:2]:
-    #                 if sorted_inter_names[go_to + go_plus][2]:
-    #                     sys.stdout.write("Warning: cannot find " + "".join(inter_name[0]) + "--" +
-    #                                      "".join(inter_name[1]) + " while there's " + "".join(next_inter[0]) +
-    #                                      "--" + "".join(next_inter[1]) + "\n")
-    #                 break
-    #             else:
-    #                 go_plus += 1
-    #         if go_plus > 1:
-    #             for gb_name in out_intergenic_dict[inter_name]:
-    #                 this_seqs = []
-    #                 for go_candidate in range(go_to, go_to + go_plus):
-    #                     if gb_name in out_intergenic_dict[sorted_inter_names[go_candidate]]:
-    #                         this_seqs.append(out_intergenic_dict[sorted_inter_names[go_candidate]][gb_name])
-    #                 if len(set(this_seqs)) > 1:
-    #                     sys.stdout.write("Warning: distinct copies of " + "".join(inter_name[0]) + "--" +
-    #                                      "".join(inter_name[1]) + " in " + gb_name + "\n")
-    #                 if options.copy_mode == "longest":
-    #                     out_intergenic_dict[inter_name][gb_name] = sorted(this_seqs, key=lambda x: -len(x))[0]
-    #                 elif options.copy_mode == "leastN":
-    #                     out_intergenic_dict[inter_name][gb_name] = sorted(this_seqs, key=lambda x: count_n(x))[0]
-    #                 elif options.copy_mode == "leastN_longest":
-    #                     out_intergenic_dict[inter_name][gb_name] = sorted(this_seqs, key=lambda x: (count_n(x), -len(x)))[0]
-    #             for go_del in range(go_to + 1, go_to + go_plus):
-    #                 del out_intergenic_dict[sorted_inter_names[go_del]]
-    #         go_to += go_plus
-    #
-    #     # for region_name in list(out_intergenic_dict):
-    #     #     if set(["__copy" in x for x in region_name.split("--")]) == {True}:
-    #     #         del out_intergenic_dict[region_name]
+        else:
+            sys.stdout.write("")
+
     if options.combine_exon:
         regions_with_exon = [x for x in list(out_gene_dict) if x[2]]
         region_dict = {}
