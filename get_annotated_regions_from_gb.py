@@ -397,7 +397,12 @@ def main():
         if os.path.exists(this_gb):
             gb_base_name = os.path.basename(this_gb).replace(".gb", "").replace(".genbank", "")
             # base_name_list.append(gb_base_name)
-            this_records = list(SeqIO.parse(this_gb, "genbank"))
+            try:
+                this_records = list(SeqIO.parse(this_gb, "genbank"))
+            except ValueError as e:
+                sys.stdout.write("Err loc: file " + this_gb + "\n")
+                sys.stdout.write(str(e) + "\n")
+                sys.exit()
             for go_record, seq_record in enumerate(this_records):
                 try:
                     this_description = seq_record.description.replace("\n", " ").replace("\t", " ").strip()
