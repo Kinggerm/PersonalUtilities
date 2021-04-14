@@ -46,6 +46,9 @@ def get_options():
     parser.add_option("--keys", dest="gene_keys", default="gene,label,product,note",
                       help="The key to the gene name: gene, label, product or other keys in the qualifiers region."
                            "Default: %default.")
+    parser.add_option("--mix", dest="mix", default=False, action="store_true",
+                      help="Mix different genes into a single fasta file. "
+                           "In this mode, the sequence header will be >gene_name - gb_info")
     parser.add_option("--case-mode", dest="case_treatment", default="first",
                       help="first: Gene name case-non-sensitive. Consistent to the first appearance. \n"
                            "lower: Gene name case-non-sensitive. All gene name set to lower case. \n"
@@ -231,10 +234,12 @@ def get_seqs(seq_record, accepted_types, gene_keys,
                             for i, loc in enumerate(locations):
                                 this_name[2] = "__exon" + str(i + 1)
                                 if loc not in taken_loc:
-                                    gene_regions.append([tuple(this_name)] + list(loc) + [get_seq_with_gb_loc(loc)])
+                                    gene_regions.append(
+                                        [tuple(this_name)] + list(loc) + [get_seq_with_gb_loc(loc), feature.type])
                                     taken_loc.add(loc)
                         else:
-                            gene_regions.append([tuple(this_name)] + list(locations[0]) + [get_seq_with_gb_loc(locations[0])])
+                            gene_regions.append(
+                                [tuple(this_name)] + list(locations[0]) + [get_seq_with_gb_loc(locations[0]), feature.type])
                         this_key_found = True
                         break
             if not location_error and not this_key_found and not ignore_format_error:
@@ -258,7 +263,7 @@ def get_seqs(seq_record, accepted_types, gene_keys,
                 name_counter[tuple(this_name[:2])] += 1
                 this_name[2] = "__copy" + str(name_counter[tuple(this_name[:2])])
             this_loc = [gene_regions[0][2], gene_regions[0][1], 1 * int(2 * ((anchor1 <= anchor2) - 0.5))]
-            intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc)])
+            intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc), "noncoding"])
     elif len(gene_regions) > 1:
         first_region = gene_regions[0]
         circular_regions = [in_region for in_region in gene_regions if in_region[1] >= in_region[2]]
@@ -286,7 +291,7 @@ def get_seqs(seq_record, accepted_types, gene_keys,
                     name_counter[tuple(this_name[:2])] += 1
                     this_name[2] = "__copy" + str(name_counter[tuple(this_name[:2])])
                 this_loc = [last_region[2], first_region[1], 1 * int(2 * ((anchor1 <= anchor2) - 0.5))]
-                intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc)])
+                intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc), "noncoding"])
         else:
             anchor1 = [last_region[0][0], last_region[0][2], tail_ if last_region[3] == 1 else head_]
             anchor2 = [first_region[0][0], first_region[0][2], head_ if first_region[3] == 1 else tail_]
@@ -297,7 +302,7 @@ def get_seqs(seq_record, accepted_types, gene_keys,
                 name_counter[tuple(this_name[:2])] += 1
                 this_name[2] = "__copy" + str(name_counter[tuple(this_name[:2])])
             this_loc = [last_region[2], first_region[1], 1 * int(2 * ((anchor1 <= anchor2) - 0.5))]
-            intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc)])
+            intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc), "noncoding"])
     go2 = 0
     while go2 < len(gene_regions) - 1:
         go_add = 1
@@ -318,14 +323,14 @@ def get_seqs(seq_record, accepted_types, gene_keys,
             else:
                 name_counter[tuple(this_name[:2])] += 1
                 this_name[2] = "__copy" + str(name_counter[tuple(this_name[:2])])
-            intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc)])
+            intergenic_regions.append([tuple(this_name)] + this_loc + [get_seq_with_gb_loc(this_loc), "noncoding"])
         go2 += go_add
     return gene_regions, intergenic_regions
 
 
-def write_fasta(out_file, seq_dict):
+def write_fasta(out_file, seq_dict, overwrite=False):
     names = sorted(list(seq_dict))
-    if os.path.exists(out_file):
+    if not overwrite and os.path.exists(out_file):
         existed_f = [x for x in os.listdir(os.path.split(out_file)[0])
                      if x.lower() == os.path.split(out_file)[-1].lower()]
         sys.stdout.write("Warning: running on a case-non-sensitive disk. "
@@ -393,6 +398,7 @@ def main():
     out_gene_dict = {}
     out_intergenic_dict = {}
     base_name_list = []
+    region_name_to_type = {}
     for this_gb in argv:
         if os.path.exists(this_gb):
             gb_base_name = os.path.basename(this_gb).replace(".gb", "").replace(".genbank", "")
@@ -415,14 +421,16 @@ def main():
                                                                 options.case_treatment)
                     if options.one_copy:
                         temp_gene_dict = {}
-                        for region_name, start, end, strand, this_seq in gene_regions:
-                            if region_name not in temp_gene_dict:
-                                temp_gene_dict[region_name] = {}
+                        for region_name, start, end, strand, this_seq, region_type in gene_regions:
+                            # if region_name not in temp_gene_dict:
+                            #     temp_gene_dict[region_name] = {}
                             temp_gene_dict[region_name] = this_seq
+                            region_name_to_type[region_name] = region_type
                         temp_inter_dict = {}
-                        for region_name, start, end, strand, this_seq in intergenic_regions:
-                            if region_name not in temp_inter_dict:
-                                temp_inter_dict[region_name] = {}
+                        for region_name, start, end, strand, this_seq, region_type in intergenic_regions:
+                            # if region_name not in temp_inter_dict:
+                            #     temp_inter_dict[region_name] = {}
+                            region_name_to_type[region_name] = region_type
                             temp_inter_dict[region_name] = this_seq
                         # processing gene
                         go_to = 0
@@ -527,36 +535,61 @@ def main():
 
     if options.combine_exon:
         regions_with_exon = [x for x in list(out_gene_dict) if x[2]]
-        region_dict = {}
+        region_set_dict = {}
+        region_set_types = {}
         for region_name in regions_with_exon:
             region_set_name = region_name[:2]
             exon_num = int(region_name[2].replace("__exon", ""))
-            if region_set_name not in region_dict:
-                region_dict[region_set_name] = []
-            region_dict[region_set_name].append(exon_num)
-        for region_set_name in region_dict:
-            region_dict[region_set_name].sort()
+            if region_set_name not in region_set_dict:
+                region_set_dict[region_set_name] = []
+                region_set_types[region_set_name] = set()
+            region_set_dict[region_set_name].append(exon_num)
+            region_set_types[region_set_name].add(region_name_to_type[region_name])
+        for region_set_name in region_set_dict:
+            region_set_dict[region_set_name].sort()
             seq_names = set()
-            for exon_num in region_dict[region_set_name]:
+            for exon_num in region_set_dict[region_set_name]:
                 for gb_name in out_gene_dict[tuple(list(region_set_name) + ["__exon" + str(exon_num)])]:
                     seq_names.add(gb_name)
             new_name = tuple(list(region_set_name) + [""])
             if new_name not in out_gene_dict:
                 out_gene_dict[new_name] = {}
+                region_name_to_type[new_name] = "_".join(sorted(region_set_types[region_set_name]))
             for gb_name in seq_names:
                 out_gene_dict[new_name][gb_name] = ""
-                for exon_num in region_dict[region_set_name]:
+                for exon_num in region_set_dict[region_set_name]:
                     out_gene_dict[new_name][gb_name] += \
                         out_gene_dict[tuple(list(region_set_name) + ["__exon" + str(exon_num)])].get(gb_name, "")
-            for exon_num in region_dict[region_set_name]:
+            for exon_num in region_set_dict[region_set_name]:
                 del out_gene_dict[tuple(list(region_set_name) + ["__exon" + str(exon_num)])]
 
-    for region_name in out_gene_dict:
-        write_fasta(os.path.join(gene_dir, "".join(region_name).replace(" ", "_") + ".fasta"),
-                    out_gene_dict[region_name])
-    for region_name in out_intergenic_dict:
-        write_fasta(os.path.join(intergenic_dir, "--".join(["".join(x) for x in region_name[:2]]).replace(" ", "_") +
-                                 region_name[2] + ".fasta"), out_intergenic_dict[region_name])
+    if options.mix:
+        gene_mixture = dict()
+        for region_name in out_gene_dict:
+            region_name_str = "".join(region_name).replace(" ", "_")
+            for this_seq_name_ in out_gene_dict[region_name]:
+                new_seq_name_ = region_name_str + " " + region_name_to_type.get(region_name, "region") + \
+                                " - " + this_seq_name_.replace(" ", "_").replace(",", "_")
+                gene_mixture[new_seq_name_] = out_gene_dict[region_name][this_seq_name_]
+        write_fasta(os.path.join(gene_dir, "gene.fasta"), gene_mixture, overwrite=options.overwrite)
+        intergene_mixture = dict()
+        for region_name in out_intergenic_dict:
+            region_name_str = "--".join(["".join(x) for x in region_name[:2]]).replace(" ", "_") + region_name[2]
+            for this_seq_name_ in out_intergenic_dict[region_name]:
+                new_seq_name_ = region_name_str + " " + region_name_to_type.get(region_name, "region") + \
+                                " - " + this_seq_name_.replace(" ", "_").replace(",", "_")
+                intergene_mixture[new_seq_name_] = out_intergenic_dict[region_name][this_seq_name_]
+        write_fasta(os.path.join(intergenic_dir, "intergene.fasta"), intergene_mixture, overwrite=options.overwrite)
+    else:
+        for region_name in out_gene_dict:
+            write_fasta(os.path.join(gene_dir, "".join(region_name).replace(" ", "_") + ".fasta"),
+                        out_gene_dict[region_name],
+                        overwrite=options.overwrite)
+        for region_name in out_intergenic_dict:
+            write_fasta(os.path.join(intergenic_dir,
+                                     "--".join(["".join(x) for x in region_name[:2]]).replace(" ", "_") +
+                                     region_name[2] + ".fasta"), out_intergenic_dict[region_name],
+                        overwrite=options.overwrite)
     write_statistics(os.path.join(options.out_put, "statistics.txt"), base_name_list, out_gene_dict, out_intergenic_dict)
 
     sys.stdout.write("Time cost: "+str(time.time() - time0) + "\n")
